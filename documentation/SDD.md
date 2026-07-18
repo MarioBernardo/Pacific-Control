@@ -1,4 +1,4 @@
-# Descripción del Diseño de Software - Pacific Control
+# Especificación del Diseño de Software (SDD)
 
 ## 1. Introducción
 
