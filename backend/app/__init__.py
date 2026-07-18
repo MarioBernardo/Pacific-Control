@@ -10,6 +10,7 @@ from app.models import (
     Novedad,
 )
 from app.routes.main_routes import main_bp
+from app.routes.empleado_routes import empleados_bp
 
 
 def create_app():
@@ -21,5 +22,6 @@ def create_app():
     migrate.init_app(app, db)
 
     app.register_blueprint(main_bp)
+    app.register_blueprint(empleados_bp)
 
     return app
