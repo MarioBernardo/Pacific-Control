@@ -3,6 +3,7 @@ from app.models.empleado import Empleado
 from app.models.puesto import Puesto
 from app.models.turno import Turno
 from app.repositories.turno_repository import TurnoRepository
+from app.services.cache_service import cache_service
 from app.services.crud_utils import (
     CrudValidationError,
     raise_if_invalid,
@@ -23,27 +24,37 @@ class TurnoService:
 
     def create(self, payload: dict) -> Turno:
         data = self._validate_data(payload, True)
-        self._validate_references(data)
-        return save_entity(self.repository, Turno(**data), "No fue posible guardar el turno.")
+        turno = save_entity(self.repository, Turno(**data), "No fue posible guardar el turno.")
+        cache_service.invalidate("turno", turno.id_turno)
+        return turno
 
     def get_by_id(self, turno_id: int) -> Turno | None:
-        return self.repository.get_by_id(turno_id)
+        return cache_service.get_by_id(
+            "turno",
+            turno_id,
+            Turno,
+            lambda: self.repository.get_by_id(turno_id),
+        )
 
     def get_all(self) -> list[Turno]:
-        return self.repository.get_all()
+        return cache_service.get_all(
+            "turnos", Turno, lambda: self.repository.get_all()
+        )
 
     def update(self, turno_id: int, payload: dict) -> Turno | None:
-        turno = self.get_by_id(turno_id)
+        turno = self.repository.get_by_id(turno_id)
         if turno is None:
             return None
         data = self._validate_data(payload, False)
         self._validate_references(data)
         for field, value in data.items():
             setattr(turno, field, value)
-        return save_entity(self.repository, turno, "No fue posible guardar el turno.")
+        turno = save_entity(self.repository, turno, "No fue posible guardar el turno.")
+        cache_service.invalidate("turno", turno.id_turno)
+        return turno
 
     def change_status(self, turno_id: int, payload: dict) -> Turno | None:
-        turno = self.get_by_id(turno_id)
+        turno = self.repository.get_by_id(turno_id)
         if turno is None:
             return None
         if set(payload) != {"estado"}:
@@ -52,7 +63,9 @@ class TurnoService:
         estado = required_string(payload, "estado", 20, errors)
         raise_if_invalid(errors, {"estado": estado} if estado else {}, True)
         turno.estado = estado
-        return save_entity(self.repository, turno, "No fue posible guardar el turno.")
+        turno = save_entity(self.repository, turno, "No fue posible guardar el turno.")
+        cache_service.invalidate("turno", turno.id_turno)
+        return turno
 
     def _validate_data(self, payload: dict, require_all: bool) -> dict:
         errors = validate_payload(payload, set(self._required_fields), self._required_fields, require_all)

@@ -3,6 +3,7 @@ from app.models.empleado import Empleado
 from app.models.novedad import Novedad
 from app.models.turno import Turno
 from app.repositories.novedad_repository import NovedadRepository
+from app.services.cache_service import cache_service
 from app.services.crud_utils import (
     CrudValidationError,
     raise_if_invalid,
@@ -23,26 +24,37 @@ class NovedadService:
     def create(self, payload: dict) -> Novedad:
         data = self._validate_data(payload, True)
         self._validate_references(data)
-        return save_entity(self.repository, Novedad(**data), "No fue posible guardar la novedad.")
+        novedad = save_entity(self.repository, Novedad(**data), "No fue posible guardar la novedad.")
+        cache_service.invalidate("novedad", novedad.id_novedad)
+        return novedad
 
     def get_by_id(self, novedad_id: int) -> Novedad | None:
-        return self.repository.get_by_id(novedad_id)
+        return cache_service.get_by_id(
+            "novedad",
+            novedad_id,
+            Novedad,
+            lambda: self.repository.get_by_id(novedad_id),
+        )
 
     def get_all(self) -> list[Novedad]:
-        return self.repository.get_all()
+        return cache_service.get_all(
+            "novedades", Novedad, lambda: self.repository.get_all()
+        )
 
     def update(self, novedad_id: int, payload: dict) -> Novedad | None:
-        novedad = self.get_by_id(novedad_id)
+        novedad = self.repository.get_by_id(novedad_id)
         if novedad is None:
             return None
         data = self._validate_data(payload, False)
         self._validate_references(data)
         for field, value in data.items():
             setattr(novedad, field, value)
-        return save_entity(self.repository, novedad, "No fue posible guardar la novedad.")
+        novedad = save_entity(self.repository, novedad, "No fue posible guardar la novedad.")
+        cache_service.invalidate("novedad", novedad.id_novedad)
+        return novedad
 
     def change_status(self, novedad_id: int, payload: dict) -> Novedad | None:
-        novedad = self.get_by_id(novedad_id)
+        novedad = self.repository.get_by_id(novedad_id)
         if novedad is None:
             return None
         if set(payload) != {"estado"}:
@@ -51,7 +63,9 @@ class NovedadService:
         estado = required_string(payload, "estado", 20, errors)
         raise_if_invalid(errors, {"estado": estado} if estado else {}, True)
         novedad.estado = estado
-        return save_entity(self.repository, novedad, "No fue posible guardar la novedad.")
+        novedad = save_entity(self.repository, novedad, "No fue posible guardar la novedad.")
+        cache_service.invalidate("novedad", novedad.id_novedad)
+        return novedad
 
     def _validate_data(self, payload: dict, require_all: bool) -> dict:
         errors = validate_payload(payload, set(self._required_fields), self._required_fields, require_all)

@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from app.extensions import db
 from app.models.empleado import Empleado
 from app.repositories.empleado_repository import EmpleadoRepository
+from app.services.cache_service import cache_service
 
 
 class EmpleadoValidationError(Exception):
@@ -41,16 +42,25 @@ class EmpleadoService:
         self._ensure_unique(data)
 
         empleado = Empleado(**data)
-        return self._save(empleado)
+        empleado = self._save(empleado)
+        cache_service.invalidate("empleado", empleado.id_empleado)
+        return empleado
 
     def get_by_id(self, empleado_id: int) -> Empleado | None:
-        return self.repository.get_by_id(empleado_id)
+        return cache_service.get_by_id(
+            "empleado",
+            empleado_id,
+            Empleado,
+            lambda: self.repository.get_by_id(empleado_id),
+        )
 
     def get_all(self) -> list[Empleado]:
-        return self.repository.get_all()
+        return cache_service.get_all(
+            "empleados", Empleado, lambda: self.repository.get_all()
+        )
 
     def update(self, empleado_id: int, payload: dict) -> Empleado | None:
-        empleado = self.get_by_id(empleado_id)
+        empleado = self.repository.get_by_id(empleado_id)
         if empleado is None:
             return None
 
@@ -60,10 +70,12 @@ class EmpleadoService:
         for field, value in data.items():
             setattr(empleado, field, value)
 
-        return self._save(empleado)
+        empleado = self._save(empleado)
+        cache_service.invalidate("empleado", empleado.id_empleado)
+        return empleado
 
     def change_status(self, empleado_id: int, payload: dict) -> Empleado | None:
-        empleado = self.get_by_id(empleado_id)
+        empleado = self.repository.get_by_id(empleado_id)
         if empleado is None:
             return None
 
@@ -73,7 +85,9 @@ class EmpleadoService:
             )
 
         empleado.estado = payload["estado"]
-        return self._save(empleado)
+        empleado = self._save(empleado)
+        cache_service.invalidate("empleado", empleado.id_empleado)
+        return empleado
 
     def _validate_employee_data(self, payload: dict, require_all: bool) -> dict:
         if not isinstance(payload, dict):

@@ -2,6 +2,7 @@ from app.extensions import db
 from app.models.dispositivo import Dispositivo
 from app.models.puesto import Puesto
 from app.repositories.dispositivo_repository import DispositivoRepository
+from app.services.cache_service import cache_service
 from app.services.crud_utils import (
     CrudConflictError,
     CrudValidationError,
@@ -25,18 +26,27 @@ class DispositivoService:
         data = self._validate_data(payload, require_all=True)
         self._ensure_unique(data)
         self._validate_puesto(data)
-        return save_entity(
+        dispositivo = save_entity(
             self.repository, Dispositivo(**data), "No fue posible guardar el dispositivo."
         )
+        cache_service.invalidate("dispositivo", dispositivo.id_dispositivo)
+        return dispositivo
 
     def get_by_id(self, dispositivo_id: int) -> Dispositivo | None:
-        return self.repository.get_by_id(dispositivo_id)
+        return cache_service.get_by_id(
+            "dispositivo",
+            dispositivo_id,
+            Dispositivo,
+            lambda: self.repository.get_by_id(dispositivo_id),
+        )
 
     def get_all(self) -> list[Dispositivo]:
-        return self.repository.get_all()
+        return cache_service.get_all(
+            "dispositivos", Dispositivo, lambda: self.repository.get_all()
+        )
 
     def update(self, dispositivo_id: int, payload: dict) -> Dispositivo | None:
-        dispositivo = self.get_by_id(dispositivo_id)
+        dispositivo = self.repository.get_by_id(dispositivo_id)
         if dispositivo is None:
             return None
         data = self._validate_data(payload, require_all=False)
@@ -44,10 +54,12 @@ class DispositivoService:
         self._validate_puesto(data)
         for field, value in data.items():
             setattr(dispositivo, field, value)
-        return save_entity(self.repository, dispositivo, "No fue posible guardar el dispositivo.")
+        dispositivo = save_entity(self.repository, dispositivo, "No fue posible guardar el dispositivo.")
+        cache_service.invalidate("dispositivo", dispositivo.id_dispositivo)
+        return dispositivo
 
     def change_status(self, dispositivo_id: int, payload: dict) -> Dispositivo | None:
-        dispositivo = self.get_by_id(dispositivo_id)
+        dispositivo = self.repository.get_by_id(dispositivo_id)
         if dispositivo is None:
             return None
         if set(payload) != {"estado"}:
@@ -56,7 +68,9 @@ class DispositivoService:
         estado = required_string(payload, "estado", 20, errors)
         raise_if_invalid(errors, {"estado": estado} if estado else {}, True)
         dispositivo.estado = estado
-        return save_entity(self.repository, dispositivo, "No fue posible guardar el dispositivo.")
+        dispositivo = save_entity(self.repository, dispositivo, "No fue posible guardar el dispositivo.")
+        cache_service.invalidate("dispositivo", dispositivo.id_dispositivo)
+        return dispositivo
 
     def _validate_data(self, payload: dict, require_all: bool) -> dict:
         errors = validate_payload(payload, self._allowed_fields, self._required_fields, require_all)

@@ -29,26 +29,37 @@ class AsistenciaService:
     def create(self, payload: dict) -> Asistencia:
         data = self._validate_data(payload, True)
         self._validate_references(data)
-        return save_entity(self.repository, Asistencia(**data), "No fue posible guardar la asistencia.")
+        asistencia = save_entity(self.repository, Asistencia(**data), "No fue posible guardar la asistencia.")
+        cache_service.invalidate("asistencia", asistencia.id_asistencia)
+        return asistencia
 
     def get_by_id(self, asistencia_id: int) -> Asistencia | None:
-        return self.repository.get_by_id(asistencia_id)
+        return cache_service.get_by_id(
+            "asistencia",
+            asistencia_id,
+            Asistencia,
+            lambda: self.repository.get_by_id(asistencia_id),
+        )
 
     def get_all(self) -> list[Asistencia]:
-        return self.repository.get_all()
+        return cache_service.get_all(
+            "asistencias", Asistencia, lambda: self.repository.get_all()
+        )
 
     def update(self, asistencia_id: int, payload: dict) -> Asistencia | None:
-        asistencia = self.get_by_id(asistencia_id)
+        asistencia = self.repository.get_by_id(asistencia_id)
         if asistencia is None:
             return None
         data = self._validate_data(payload, False)
         self._validate_references(data)
         for field, value in data.items():
             setattr(asistencia, field, value)
-        return save_entity(self.repository, asistencia, "No fue posible guardar la asistencia.")
+        asistencia = save_entity(self.repository, asistencia, "No fue posible guardar la asistencia.")
+        cache_service.invalidate("asistencia", asistencia.id_asistencia)
+        return asistencia
 
     def change_status(self, asistencia_id: int, payload: dict) -> Asistencia | None:
-        asistencia = self.get_by_id(asistencia_id)
+        asistencia = self.repository.get_by_id(asistencia_id)
         if asistencia is None:
             return None
         if set(payload) != {"estado"}:
@@ -57,7 +68,9 @@ class AsistenciaService:
         estado = required_string(payload, "estado", 20, errors)
         raise_if_invalid(errors, {"estado": estado} if estado else {}, True)
         asistencia.estado = estado
-        return save_entity(self.repository, asistencia, "No fue posible guardar la asistencia.")
+        asistencia = save_entity(self.repository, asistencia, "No fue posible guardar la asistencia.")
+        cache_service.invalidate("asistencia", asistencia.id_asistencia)
+        return asistencia
 
     def _validate_data(self, payload: dict, require_all: bool) -> dict:
         errors = validate_payload(payload, self._allowed_fields, self._required_fields, require_all)
