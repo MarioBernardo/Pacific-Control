@@ -12,6 +12,7 @@ class Empleado(db.Model):
     nombres = db.Column(String(100), nullable=False)
     apellidos = db.Column(String(100), nullable=False)
     correo = db.Column(String(120), unique=True, nullable=False)
+    password_hash = db.Column(String(255), nullable=True)
     telefono = db.Column(String(15), nullable=False)
     cargo = db.Column(String(50), nullable=False)
     estado = db.Column(Boolean, default=True, nullable=False)
