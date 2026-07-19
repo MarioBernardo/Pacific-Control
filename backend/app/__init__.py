@@ -16,6 +16,7 @@ from app.routes.dispositivo_routes import dispositivos_bp
 from app.routes.turno_routes import turnos_bp
 from app.routes.asistencia_routes import asistencias_bp
 from app.routes.novedad_routes import novedades_bp
+from app.auth.auth_routes import auth_bp
 
 
 def create_app():
@@ -35,5 +36,6 @@ def create_app():
     app.register_blueprint(turnos_bp)
     app.register_blueprint(asistencias_bp)
     app.register_blueprint(novedades_bp)
+    app.register_blueprint(auth_bp)
 
     return app

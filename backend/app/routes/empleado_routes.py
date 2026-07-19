@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required
 
 from app.models.empleado import Empleado
 from app.services.empleado_service import (
@@ -46,6 +47,7 @@ def create_empleado():
 
 
 @empleados_bp.get("")
+@jwt_required()
 def list_empleados():
     empleados = empleado_service.get_all()
     return jsonify({"data": [_serialize_empleado(empleado) for empleado in empleados]}), 200
