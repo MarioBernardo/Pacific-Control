@@ -54,6 +54,7 @@ def list_empleados():
 
 
 @empleados_bp.get("/<int:empleado_id>")
+@jwt_required()
 def get_empleado(empleado_id: int):
     empleado = empleado_service.get_by_id(empleado_id)
     if empleado is None:
@@ -63,6 +64,7 @@ def get_empleado(empleado_id: int):
 
 
 @empleados_bp.put("/<int:empleado_id>")
+@jwt_required()
 def update_empleado(empleado_id: int):
     payload = _json_payload()
     if payload is None:
@@ -82,6 +84,7 @@ def update_empleado(empleado_id: int):
 
 
 @empleados_bp.patch("/<int:empleado_id>/estado")
+@jwt_required()
 def change_empleado_status(empleado_id: int):
     payload = _json_payload()
     if payload is None:

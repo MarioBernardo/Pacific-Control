@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required
 
 from app.models.turno import Turno
 from app.services.crud_utils import CrudConflictError, CrudValidationError
@@ -32,11 +33,13 @@ def create_turno():
 
 
 @turnos_bp.get("")
+@jwt_required()
 def list_turnos():
     return jsonify({"data": [_serialize_turno(item) for item in turno_service.get_all()]}), 200
 
 
 @turnos_bp.get("/<int:turno_id>")
+@jwt_required()
 def get_turno(turno_id: int):
     turno = turno_service.get_by_id(turno_id)
     if turno is None:
@@ -45,6 +48,7 @@ def get_turno(turno_id: int):
 
 
 @turnos_bp.put("/<int:turno_id>")
+@jwt_required()
 def update_turno(turno_id: int):
     payload = _payload()
     if payload is None:
@@ -61,6 +65,7 @@ def update_turno(turno_id: int):
 
 
 @turnos_bp.patch("/<int:turno_id>/estado")
+@jwt_required()
 def change_turno_status(turno_id: int):
     payload = _payload()
     if payload is None:

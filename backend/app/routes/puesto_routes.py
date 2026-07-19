@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required
 
 from app.models.puesto import Puesto
 from app.services.crud_utils import CrudConflictError, CrudValidationError
@@ -32,11 +33,13 @@ def create_puesto():
 
 
 @puestos_bp.get("")
+@jwt_required()
 def list_puestos():
     return jsonify({"data": [_serialize_puesto(puesto) for puesto in puesto_service.get_all()]}), 200
 
 
 @puestos_bp.get("/<int:puesto_id>")
+@jwt_required()
 def get_puesto(puesto_id: int):
     puesto = puesto_service.get_by_id(puesto_id)
     if puesto is None:
@@ -45,6 +48,7 @@ def get_puesto(puesto_id: int):
 
 
 @puestos_bp.put("/<int:puesto_id>")
+@jwt_required()
 def update_puesto(puesto_id: int):
     payload = _payload()
     if payload is None:
@@ -61,6 +65,7 @@ def update_puesto(puesto_id: int):
 
 
 @puestos_bp.patch("/<int:puesto_id>/estado")
+@jwt_required()
 def change_puesto_status(puesto_id: int):
     payload = _payload()
     if payload is None:
