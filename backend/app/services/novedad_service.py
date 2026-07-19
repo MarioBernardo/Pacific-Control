@@ -40,7 +40,7 @@ class NovedadService:
 
     def get_all(self) -> list[Novedad]:
         return cache_service.get_all(
-            "novedades", Novedad, lambda: self.repository.get_all()
+            "novedad", Novedad, lambda: self.repository.get_all()
         )
 
     def update(self, novedad_id: int, payload: dict) -> Novedad | None:

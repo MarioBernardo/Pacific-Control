@@ -16,5 +16,6 @@ redis==5.0.8
 SQLAlchemy==2.0.51
 typing_extensions==4.16.0
 Werkzeug==3.1.8
+Flask-JWT-Extended==4.4.4
 celery==5.3.0
 

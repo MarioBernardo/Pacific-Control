@@ -1,6 +1,6 @@
 from flask import Flask
 
-from app.extensions import cache, db, migrate
+from app.extensions import cache, db, jwt, migrate
 from app.models import (
     Empleado,
     Puesto,
@@ -26,6 +26,7 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     cache.init_app(app)
+    jwt.init_app(app)
 
     app.register_blueprint(main_bp)
     app.register_blueprint(empleados_bp)
