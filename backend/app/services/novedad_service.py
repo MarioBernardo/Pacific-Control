@@ -4,6 +4,7 @@ from app.models.novedad import Novedad
 from app.models.turno import Turno
 from app.repositories.novedad_repository import NovedadRepository
 from app.services.cache_service import cache_service
+from app.tasks import process_novedad
 from app.services.crud_utils import (
     CrudValidationError,
     raise_if_invalid,
@@ -26,6 +27,7 @@ class NovedadService:
         self._validate_references(data)
         novedad = save_entity(self.repository, Novedad(**data), "No fue posible guardar la novedad.")
         cache_service.invalidate("novedad", novedad.id_novedad)
+        process_novedad.delay(novedad.id_novedad)
         return novedad
 
     def get_by_id(self, novedad_id: int) -> Novedad | None:

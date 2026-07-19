@@ -22,3 +22,5 @@ class Config:
     CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     CACHE_DEFAULT_TTL = _positive_integer(os.getenv("CACHE_DEFAULT_TTL"), 300)
+    CELERY_BROKER_URL = REDIS_URL
+    CELERY_RESULT_BACKEND = REDIS_URL
