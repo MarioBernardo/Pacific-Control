@@ -1,10 +1,10 @@
-# Pacific Control - Backend
+# Pacific Control
 
 ## Descripción
 
 Pacific Control es un sistema desarrollado para optimizar la gestión operativa de una empresa de seguridad privada mediante una aplicación móvil y una API REST. El sistema permite administrar empleados, puestos, dispositivos, turnos, asistencias y novedades, garantizando un control eficiente de las operaciones y facilitando el seguimiento en tiempo real.
 
-El backend fue desarrollado utilizando una arquitectura por capas, implementando buenas prácticas de desarrollo como separación de responsabilidades, autenticación mediante JWT, almacenamiento en caché con Redis y procesamiento asíncrono con Celery.
+El sistema está compuesto por un **backend/API REST desarrollado con Flask** y una **aplicación móvil desarrollada con Flutter**. El backend utiliza una arquitectura por capas, autenticación mediante JWT, almacenamiento en caché con Redis y procesamiento asíncrono con Celery.
 
 ---
 
@@ -34,6 +34,36 @@ El backend fue desarrollado utilizando una arquitectura por capas, implementando
 | python-dotenv | Gestión de variables de entorno |
 | Git | Control de versiones |
 | GitHub | Repositorio del proyecto |
+
+---
+
+## Tecnologías móviles
+
+| Tecnología | Uso en el proyecto |
+|------------|--------------------|
+| Flutter | Desarrollo de la aplicación móvil. |
+| Dart | Lenguaje de programación de Flutter. |
+| Android Studio | Ejecución y administración del entorno Android. |
+| Android Emulator | Pruebas de la aplicación móvil contra el backend local. |
+| HTTP | Consumo de la API REST de Flask. |
+| flutter_secure_storage | Almacenamiento seguro de la sesión y del token JWT. |
+
+---
+
+## Estructura general del proyecto
+
+```text
+Pacific-Control/
+├── backend/
+├── mobile/
+├── documentation/
+└── spec/
+```
+
+- `backend/`: API REST en Flask, modelos, servicios, rutas, migraciones y configuración.
+- `mobile/`: aplicación Flutter para Android y otras plataformas compatibles.
+- `documentation/`: documentación técnica y de arquitectura del proyecto.
+- `spec/`: especificaciones y planificación de funcionalidades.
 
 ---
 
@@ -147,7 +177,7 @@ Control de versiones:
 
 ---
 
-# Instalación
+## Configuración y ejecución del backend
 
 ## Clonar el repositorio
 
@@ -155,7 +185,7 @@ Control de versiones:
 git clone <URL_DEL_REPOSITORIO>
 ```
 
-## Ingresar al proyecto
+## Ingresar al backend
 
 ```bash
 cd backend
@@ -186,6 +216,14 @@ source venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
+
+## Ejecutar el backend
+
+```bash
+python run.py
+```
+
+Flask queda disponible en el puerto `5000` y escucha en `0.0.0.0`, lo que permite el acceso desde el emulador Android mediante `10.0.2.2`.
 
 ---
 
@@ -220,14 +258,6 @@ flask db upgrade
 
 ---
 
-# Ejecutar el Proyecto
-
-```bash
-python run.py
-```
-
----
-
 # Endpoints Principales
 
 - Autenticación
@@ -239,6 +269,127 @@ python run.py
 - Novedades
 
 Todos los endpoints protegidos requieren un token JWT válido.
+
+---
+
+## Configuración y ejecución de la aplicación móvil
+
+Desde la raíz del proyecto, ingresa a la aplicación móvil e instala sus dependencias:
+
+```bash
+cd mobile
+flutter pub get
+flutter devices
+```
+
+Para ejecutar la aplicación en el emulador Android:
+
+```bash
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000
+```
+
+La dirección `10.0.2.2` permite que el emulador Android acceda al servidor Flask que se ejecuta en el computador anfitrión.
+
+---
+
+## Conexión Flutter - Flask
+
+Flutter consume la API REST del backend mediante HTTP. La conectividad inicial se verifica con:
+
+```text
+GET /
+```
+
+Una respuesta JSON correcta confirma que el backend está funcionando y que el emulador puede comunicarse con Flask.
+
+---
+
+## Autenticación móvil
+
+El flujo de autenticación implementado es:
+
+```text
+LoginPage
+    ↓
+POST /auth/login
+    ↓
+Flask valida correo y contraseña
+    ↓
+JWT access_token
+    ↓
+Flutter almacena la sesión de forma segura
+    ↓
+HomePage
+```
+
+El inicio de sesión envía:
+
+```json
+{
+  "correo": "usuario@empresa.com",
+  "password": "********"
+}
+```
+
+Una autenticación exitosa devuelve el `access_token` y los datos del empleado. Flutter conserva la sesión mediante almacenamiento seguro.
+
+---
+
+## Interfaz móvil
+
+La aplicación móvil cuenta actualmente con:
+
+- Pantalla de inicio de sesión.
+- Campos de usuario y contraseña.
+- Validación de formulario y mensajes de error.
+- Opción para mostrar u ocultar la contraseña.
+- Diseño basado en los colores corporativos de Pacific Control.
+- Logotipo de Pacific Security Force.
+- Pantalla principal después de autenticarse.
+- Cierre de sesión.
+
+---
+
+## Logo y recursos gráficos
+
+El logotipo oficial se encuentra en:
+
+```text
+mobile/assets/branding/
+```
+
+El directorio está declarado como asset en `mobile/pubspec.yaml` y el logo se muestra conservando sus proporciones originales.
+
+---
+
+## Verificación del proyecto
+
+Para comprobar el análisis estático y las pruebas de Flutter:
+
+```bash
+flutter analyze
+flutter test
+```
+
+Para revisar problemas de espacios o formato en los cambios del repositorio:
+
+```bash
+git diff --check
+```
+
+---
+
+## Flujo completo de ejecución
+
+1. Iniciar PostgreSQL y los servicios locales necesarios, como Redis cuando esté habilitado.
+2. Iniciar el backend Flask desde `backend/`.
+3. Verificar que Flask está escuchando en el puerto `5000`.
+4. Iniciar el emulador Android.
+5. Ejecutar Flutter indicando `API_BASE_URL=http://10.0.2.2:5000`.
+6. Verificar la conexión con el backend mediante `GET /`.
+7. Realizar el inicio de sesión.
+8. Verificar el acceso a la pantalla principal.
+9. Probar el cierre de sesión.
 
 ---
 
@@ -264,13 +415,17 @@ Todos los endpoints protegidos requieren un token JWT válido.
 Estado actual:
 
 - Arquitectura implementada.
-- CRUD completo.
+- Backend/API REST funcional y CRUD implementados.
 - Autenticación JWT.
 - Redis Cache.
 - Celery.
 - PostgreSQL.
 - Migraciones.
-- API REST funcional.
+- Aplicación móvil Flutter.
+- Conexión Flutter ↔ Flask.
+- Login móvil funcional.
+- Sesión segura.
+- Interfaz móvil con diseño corporativo.
 
 ---
 
@@ -283,3 +438,9 @@ Universidad Estatal Amazónica
 Carrera de Tecnologías de la Información
 
 Proyecto académico desarrollado para la asignatura de Desarrollo de Aplicaciones Móviles.
+
+---
+
+## Video de demostración
+
+El video de demostración será incorporado posteriormente como parte de la entrega.
