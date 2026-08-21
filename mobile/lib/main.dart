@@ -1,84 +1,86 @@
 import 'package:flutter/material.dart';
 
+import 'features/auth/presentation/home_page.dart';
+import 'features/auth/presentation/login_page.dart';
+import 'features/auth/services/auth_service.dart';
+import 'features/auth/services/auth_session.dart';
+import 'theme/app_theme.dart';
+
 void main() {
-  runApp(const MyApp());
+  runApp(const PacificControlApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class PacificControlApp extends StatelessWidget {
+  const PacificControlApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Pacific Control',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-        ),
-        useMaterial3: true,
-      ),
-      home: const MyHomePage(
-        title: 'Pacific Control',
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light,
+      home: const _AuthGate(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({
-    super.key,
-    required this.title,
-  });
-
-  final String title;
+class _AuthGate extends StatefulWidget {
+  const _AuthGate();
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<_AuthGate> createState() => _AuthGateState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _AuthGateState extends State<_AuthGate> {
+  final AuthService _authService = AuthService();
+  late Future<AuthSession?> _sessionFuture;
 
-  void _incrementCounter() {
+  @override
+  void initState() {
+    super.initState();
+    _sessionFuture = _authService.restoreSession();
+  }
+
+  void _startSession(AuthSession session) {
     setState(() {
-      _counter++;
+      _sessionFuture = Future.value(session);
+    });
+  }
+
+  Future<void> _closeSession() async {
+    await _authService.logout();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _sessionFuture = Future.value();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Pacific Control',
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Aplicación móvil de control y gestión',
-            ),
-            const SizedBox(height: 30),
-            const Text(
-              'Contador de prueba:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Incrementar',
-        child: const Icon(Icons.add),
-      ),
+    return FutureBuilder<AuthSession?>(
+      future: _sessionFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final session = snapshot.data;
+        if (session == null) {
+          return LoginPage(
+            authService: _authService,
+            onAuthenticated: _startSession,
+          );
+        }
+
+        return HomePage(
+          session: session,
+          onLogout: _closeSession,
+        );
+      },
     );
   }
 }
