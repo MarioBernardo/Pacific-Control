@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme/app_colors.dart';
+import '../../../widgets/app_text_field.dart';
 import '../../../widgets/brand_logo.dart';
+import '../../../widgets/primary_button.dart';
 import '../services/auth_service.dart';
 import '../services/auth_session.dart';
 
@@ -82,7 +84,6 @@ class _LoginPageState extends State<LoginPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // LOGO OFICIAL
                         const Center(
                           child: SizedBox(
                             width: 280,
@@ -109,15 +110,12 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 32),
 
-                        TextFormField(
+                        AppTextField(
                           controller: _emailController,
+                          label: 'Usuario',
+                          hint: 'correo@empresa.com',
+                          prefixIcon: Icons.person_outline,
                           keyboardType: TextInputType.emailAddress,
-                          textInputAction: TextInputAction.next,
-                          decoration: const InputDecoration(
-                            labelText: 'Usuario',
-                            hintText: 'correo@empresa.com',
-                            prefixIcon: Icon(Icons.person_outline),
-                          ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
                               return 'Ingresa tu correo institucional.';
@@ -133,27 +131,24 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 16),
 
-                        TextFormField(
+                        AppTextField(
                           controller: _passwordController,
+                          label: 'Contraseña',
                           obscureText: _obscurePassword,
-                          textInputAction: TextInputAction.done,
-                          onFieldSubmitted: (_) => _submit(),
-                          decoration: InputDecoration(
-                            labelText: 'Contraseña',
-                            prefixIcon: const Icon(Icons.lock_outline),
-                            suffixIcon: IconButton(
-                              tooltip: _obscurePassword
-                                  ? 'Mostrar contraseña'
-                                  : 'Ocultar contraseña',
-                              onPressed: () => setState(
-                                () => _obscurePassword =
-                                    !_obscurePassword,
-                              ),
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_outlined
-                                    : Icons.visibility_off_outlined,
-                              ),
+                          prefixIcon: Icons.lock_outline,
+                          suffixIcon: IconButton(
+                            tooltip: _obscurePassword
+                                ? 'Mostrar contraseña'
+                                : 'Ocultar contraseña',
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
                             ),
                           ),
                           validator: (value) {
@@ -184,18 +179,10 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 24),
 
-                        ElevatedButton(
-                          onPressed: _isLoading ? null : _submit,
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    color: AppColors.darkBlue,
-                                  ),
-                                )
-                              : const Text('INICIAR SESIÓN'),
+                        PrimaryButton(
+                          label: 'INICIAR SESIÓN',
+                          onPressed: _submit,
+                          loading: _isLoading,
                         ),
 
                         const SizedBox(height: 18),
