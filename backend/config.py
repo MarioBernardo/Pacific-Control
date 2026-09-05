@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import timedelta
 from dotenv import load_dotenv
 
@@ -12,8 +13,18 @@ def _positive_integer(value: str | None, default: int) -> int:
         return default
 
 
+def _secret_key(name: str, fallback: str | None = None) -> str:
+    """Return an environment-provided secret with a safe HMAC-SHA256 length."""
+    value = os.getenv(name) or fallback
+    if value is None:
+        return secrets.token_urlsafe(48)
+    if len(value.encode("utf-8")) < 32:
+        raise RuntimeError(f"{name} debe tener al menos 32 bytes.")
+    return value
+
+
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY", "pacific-control-dev-key")
+    SECRET_KEY = _secret_key("SECRET_KEY")
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL",
@@ -23,7 +34,7 @@ class Config:
     CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     CACHE_DEFAULT_TTL = _positive_integer(os.getenv("CACHE_DEFAULT_TTL"), 300)
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
+    JWT_SECRET_KEY = _secret_key("JWT_SECRET_KEY", SECRET_KEY)
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=7)
     JWT_ALGORITHM = "HS256"

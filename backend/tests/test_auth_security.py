@@ -11,6 +11,9 @@ from app.extensions import db
 from app.models.empleado import Empleado
 
 
+TEST_JWT_SECRET_KEY = "TEST_ONLY_JWT_SECRET_KEY_0123456789_abcdefghijklmnopqrstuvwxyz"
+
+
 class AuthSecurityTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -18,7 +21,7 @@ class AuthSecurityTestCase(unittest.TestCase):
             "TESTING": True,
             "SQLALCHEMY_DATABASE_URI": "sqlite://",
             "CACHE_ENABLED": False,
-            "JWT_SECRET_KEY": "test-jwt-secret",
+            "JWT_SECRET_KEY": TEST_JWT_SECRET_KEY,
         })
         cls.context = cls.app.app_context()
         cls.context.push()
