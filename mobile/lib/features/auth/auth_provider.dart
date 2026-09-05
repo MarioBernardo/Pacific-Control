@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
+import '../../config/app_environment.dart';
+import '../../services/authenticated_api_client.dart';
 import 'services/auth_service.dart';
 import 'services/auth_session.dart';
 
@@ -8,6 +11,17 @@ final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
 final authControllerProvider =
     NotifierProvider<AuthController, AuthState>(AuthController.new);
+
+final authenticatedApiClientProvider = Provider<AuthenticatedApiClient>((ref) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return AuthenticatedApiClient(
+    client: client,
+    baseUrl: AppEnvironment.apiBaseUrl,
+    accessToken: () => ref.read(authControllerProvider).session?.accessToken,
+    onUnauthorized: () => ref.read(authControllerProvider.notifier).logout(),
+  );
+});
 
 enum AuthStatus { restoring, unauthenticated, authenticated }
 

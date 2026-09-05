@@ -1,19 +1,23 @@
 # Pacific Control Mobile
 
-La pantalla inicial comprueba el endpoint público `GET /` del backend Flask y
-muestra los campos `project`, `status` y `version` devueltos por este.
+La aplicacion Flutter se conecta al backend Flask desde el emulador Android.
 
-## Ejecución en el emulador Android
+## Ejecucion
 
-1. Inicia el backend desde `backend` con `python run.py`. Escuchará en el
-   puerto `5000` y en todas las interfaces de desarrollo.
-2. Desde esta carpeta, instala dependencias con `flutter pub get`.
-3. Ejecuta la app en el emulador con:
+1. Inicia el backend desde `backend` con `python run.py`.
+2. Desde esta carpeta ejecuta `flutter pub get`.
+3. Ejecuta:
 
    ```bash
    flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000
    ```
 
-`10.0.2.2` es la dirección especial que usa el emulador Android para acceder
-al `localhost` del equipo que ejecuta el backend. Si se omite el define, la
-aplicación usa esa misma URL como valor de desarrollo predeterminado.
+`10.0.2.2` permite al emulador Android acceder al localhost del equipo host.
+
+## Cliente HTTP autenticado
+
+`lib/services/authenticated_api_client.dart` centraliza solicitudes Bearer JWT.
+Recibe un `http.Client` inyectable, no depende de widgets, Riverpod, go_router
+ni FlutterSecureStorage. Riverpod le aporta el token actual y un callback para
+invalidar la sesion ante 401; 403 conserva la sesion y devuelve un error de
+permisos a la capa solicitante.
