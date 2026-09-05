@@ -1,6 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required
-
+from app.auth.authorization import active_employee_required
 from app.models.asistencia import Asistencia
 from app.services.asistencia_service import AsistenciaService
 from app.services.crud_utils import CrudConflictError, CrudValidationError
@@ -19,6 +18,7 @@ def _payload():
 
 
 @asistencias_bp.post("")
+@active_employee_required
 def create_asistencia():
     payload = _payload()
     if payload is None:
@@ -33,13 +33,13 @@ def create_asistencia():
 
 
 @asistencias_bp.get("")
-@jwt_required()
+@active_employee_required
 def list_asistencias():
     return jsonify({"data": [_serialize_asistencia(item) for item in asistencia_service.get_all()]}), 200
 
 
 @asistencias_bp.get("/<int:asistencia_id>")
-@jwt_required()
+@active_employee_required
 def get_asistencia(asistencia_id: int):
     asistencia = asistencia_service.get_by_id(asistencia_id)
     if asistencia is None:
@@ -48,7 +48,7 @@ def get_asistencia(asistencia_id: int):
 
 
 @asistencias_bp.put("/<int:asistencia_id>")
-@jwt_required()
+@active_employee_required
 def update_asistencia(asistencia_id: int):
     payload = _payload()
     if payload is None:
@@ -65,7 +65,7 @@ def update_asistencia(asistencia_id: int):
 
 
 @asistencias_bp.patch("/<int:asistencia_id>/estado")
-@jwt_required()
+@active_employee_required
 def change_asistencia_status(asistencia_id: int):
     payload = _payload()
     if payload is None:

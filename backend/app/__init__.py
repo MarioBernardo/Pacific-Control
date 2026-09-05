@@ -1,5 +1,6 @@
 from flask import Flask
 
+from app.auth.authorization import register_jwt_error_handlers
 from app.extensions import cache, db, jwt, migrate
 from app.models import (
     Empleado,
@@ -19,15 +20,18 @@ from app.routes.novedad_routes import novedades_bp
 from app.auth.auth_routes import auth_bp
 
 
-def create_app():
+def create_app(test_config: dict | None = None):
     app = Flask(__name__)
 
     app.config.from_object("config.Config")
+    if test_config is not None:
+        app.config.update(test_config)
 
     db.init_app(app)
     migrate.init_app(app, db)
     cache.init_app(app)
     jwt.init_app(app)
+    register_jwt_error_handlers(jwt)
 
     app.register_blueprint(main_bp)
     app.register_blueprint(empleados_bp)

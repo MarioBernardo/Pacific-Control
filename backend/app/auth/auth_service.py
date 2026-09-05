@@ -26,7 +26,7 @@ class AuthService:
         if empleado.password_hash is None:
             raise AuthenticationError("Credenciales inválidas.")
 
-        if not check_password_hash(empleado.password_hash, password):
+        if not empleado.estado or not check_password_hash(empleado.password_hash, password):
             raise AuthenticationError("Credenciales inválidas.")
 
         claims = {

@@ -1,6 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required
-
+from app.auth.authorization import active_employee_required
 from app.models.dispositivo import Dispositivo
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.dispositivo_service import DispositivoService
@@ -19,6 +18,7 @@ def _payload():
 
 
 @dispositivos_bp.post("")
+@active_employee_required
 def create_dispositivo():
     payload = _payload()
     if payload is None:
@@ -33,13 +33,13 @@ def create_dispositivo():
 
 
 @dispositivos_bp.get("")
-@jwt_required()
+@active_employee_required
 def list_dispositivos():
     return jsonify({"data": [_serialize_dispositivo(item) for item in dispositivo_service.get_all()]}), 200
 
 
 @dispositivos_bp.get("/<int:dispositivo_id>")
-@jwt_required()
+@active_employee_required
 def get_dispositivo(dispositivo_id: int):
     dispositivo = dispositivo_service.get_by_id(dispositivo_id)
     if dispositivo is None:
@@ -48,7 +48,7 @@ def get_dispositivo(dispositivo_id: int):
 
 
 @dispositivos_bp.put("/<int:dispositivo_id>")
-@jwt_required()
+@active_employee_required
 def update_dispositivo(dispositivo_id: int):
     payload = _payload()
     if payload is None:
@@ -65,7 +65,7 @@ def update_dispositivo(dispositivo_id: int):
 
 
 @dispositivos_bp.patch("/<int:dispositivo_id>/estado")
-@jwt_required()
+@active_employee_required
 def change_dispositivo_status(dispositivo_id: int):
     payload = _payload()
     if payload is None:
