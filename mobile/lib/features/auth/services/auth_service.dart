@@ -60,20 +60,16 @@ class AuthService {
   }
 
   Future<AuthSession?> restoreSession() async {
-    try {
-      final value = await _storage.read(key: _sessionKey);
-      if (value == null) {
-        return null;
-      }
-      final decoded = _decodeObject(value);
-      if (decoded == null) {
-        await logout();
-        return null;
-      }
-      return AuthSession.fromJson(decoded);
-    } catch (_) {
+    final value = await _storage.read(key: _sessionKey);
+    if (value == null) {
       return null;
     }
+    final decoded = _decodeObject(value);
+    if (decoded == null) {
+      await logout();
+      return null;
+    }
+    return AuthSession.fromJson(decoded);
   }
 
   Future<void> logout() => _storage.delete(key: _sessionKey);

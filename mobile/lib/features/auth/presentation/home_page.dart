@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../theme/app_colors.dart';
 import '../../../widgets/brand_logo.dart';
 import '../../backend_status/backend_status_page.dart';
+import '../auth_provider.dart';
 import '../services/auth_session.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.session, required this.onLogout});
-
-  final AuthSession session;
-  final Future<void> Function() onLogout;
+class HomePage extends ConsumerWidget {
+  const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(authControllerProvider).session;
+    if (session == null) {
+      return const SizedBox.shrink();
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -22,7 +25,7 @@ class HomePage extends StatelessWidget {
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',
-            onPressed: onLogout,
+          onPressed: () => ref.read(authControllerProvider.notifier).logout(),
             icon: const Icon(Icons.logout),
           ),
         ],

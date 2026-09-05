@@ -1,69 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/auth_provider.dart';
+import '../features/auth/presentation/auth_loading_page.dart';
 import '../features/auth/presentation/home_page.dart';
 import '../features/auth/presentation/login_page.dart';
-import '../features/auth/services/auth_service.dart';
-import '../features/auth/services/auth_session.dart';
 
-class AppRouter {
-  AppRouter(this.authService);
+final appRouterProvider = Provider<GoRouter>((ref) {
+  final refreshNotifier = _AuthRouterRefreshNotifier(ref);
+  ref.onDispose(refreshNotifier.dispose);
 
-  final AuthService authService;
-
-  AuthSession? _session;
-
-  late final GoRouter router = GoRouter(
+  return GoRouter(
     initialLocation: '/login',
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
-      final isLoggedIn = _session != null;
+      final authState = ref.read(authControllerProvider);
       final isLogin = state.matchedLocation == '/login';
 
-      if (!isLoggedIn && !isLogin) {
+      if (authState.isRestoring) {
+        return null;
+      }
+      if (!authState.isAuthenticated && !isLogin) {
         return '/login';
       }
-
-      if (isLoggedIn && isLogin) {
+      if (authState.isAuthenticated && isLogin) {
         return '/home';
       }
-
       return null;
     },
     routes: [
       GoRoute(
         path: '/login',
         builder: (context, state) {
-          return LoginPage(
-            authService: authService,
-            onAuthenticated: (session) {
-              _session = session;
-              router.go('/home');
-            },
-          );
+          return ref.read(authControllerProvider).isRestoring
+              ? const AuthLoadingPage()
+              : const LoginPage();
         },
       ),
       GoRoute(
         path: '/home',
         builder: (context, state) {
-          final session = _session;
-
-          if (session == null) {
-            return const SizedBox.shrink();
-          }
-
-          return HomePage(
-            session: session,
-            onLogout: () async {
-              await authService.logout();
-              _session = null;
-
-              if (context.mounted) {
-                router.go('/login');
-              }
-            },
-          );
+          return ref.read(authControllerProvider).isRestoring
+              ? const AuthLoadingPage()
+              : const HomePage();
         },
       ),
     ],
   );
+});
+
+class _AuthRouterRefreshNotifier extends ChangeNotifier {
+  _AuthRouterRefreshNotifier(Ref ref) {
+    _subscription = ref.listen<AuthState>(
+      authControllerProvider,
+      (_, _) => notifyListeners(),
+    );
+  }
+
+  late final ProviderSubscription<AuthState> _subscription;
+
+  @override
+  void dispose() {
+    _subscription.close();
+    super.dispose();
+  }
 }
