@@ -16,9 +16,15 @@ class TurnosPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final turnos = ref.watch(turnosProvider);
-    final position = ref.watch(authControllerProvider).session?.employee.position;
-    final canManage = {'ADMINISTRADOR', 'SUPERVISOR'}
-        .contains(position?.trim().toUpperCase());
+    final position = ref
+        .watch(authControllerProvider)
+        .session
+        ?.employee
+        .position;
+    final canManage = {
+      'ADMINISTRADOR',
+      'SUPERVISOR',
+    }.contains(position?.trim().toUpperCase());
 
     return Scaffold(
       appBar: AppBar(
@@ -78,7 +84,9 @@ class TurnosPage extends ConsumerWidget {
       final puestos = results[1] as List<Puesto>;
       if (empleados.isEmpty || puestos.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Debe existir al menos un empleado y un puesto.')),
+          const SnackBar(
+            content: Text('Debe existir al menos un empleado y un puesto.'),
+          ),
         );
         return;
       }
@@ -99,7 +107,11 @@ class TurnosPage extends ConsumerWidget {
       }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(turno == null ? 'Turno creado.' : 'Turno actualizado.')),
+          SnackBar(
+            content: Text(
+              turno == null ? 'Turno creado.' : 'Turno actualizado.',
+            ),
+          ),
         );
       }
     } on ApiException catch (error) {
@@ -115,9 +127,8 @@ class TurnosPage extends ConsumerWidget {
     try {
       await ref.read(turnosProvider.notifier).changeStatus(turno);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Estado actualizado.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Estado actualizado.')));
       }
     } on ApiException catch (error) {
       if (context.mounted) _showError(context, error);
@@ -125,7 +136,8 @@ class TurnosPage extends ConsumerWidget {
   }
 
   void _showError(BuildContext context, ApiException error) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(error.message)));
   }
 }
 
@@ -207,7 +219,9 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
     _dateController = TextEditingController(text: widget.turno?.fecha);
     _startController = TextEditingController(text: widget.turno?.horaInicio);
     _endController = TextEditingController(text: widget.turno?.horaFin);
-    _statusController = TextEditingController(text: widget.turno?.estado ?? 'activo');
+    _statusController = TextEditingController(
+      text: widget.turno?.estado ?? 'activo',
+    );
     _employeeId = widget.turno?.idEmpleado;
     _puestoId = widget.turno?.idPuesto;
   }
@@ -235,21 +249,27 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
               TextFormField(
                 controller: _dateController,
                 readOnly: true,
-                decoration: const InputDecoration(labelText: 'Fecha (YYYY-MM-DD)'),
+                decoration: const InputDecoration(
+                  labelText: 'Fecha (YYYY-MM-DD)',
+                ),
                 onTap: _pickDate,
                 validator: _required,
               ),
               TextFormField(
                 controller: _startController,
                 readOnly: true,
-                decoration: const InputDecoration(labelText: 'Hora inicio (HH:MM:SS)'),
+                decoration: const InputDecoration(
+                  labelText: 'Hora inicio (HH:MM:SS)',
+                ),
                 onTap: () => _pickTime(_startController),
                 validator: _required,
               ),
               TextFormField(
                 controller: _endController,
                 readOnly: true,
-                decoration: const InputDecoration(labelText: 'Hora fin (HH:MM:SS)'),
+                decoration: const InputDecoration(
+                  labelText: 'Hora fin (HH:MM:SS)',
+                ),
                 onTap: () => _pickTime(_endController),
                 validator: _required,
               ),
@@ -259,7 +279,10 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
                 validator: _required,
               ),
               DropdownButtonFormField<int>(
-                initialValue: widget.empleados.any((item) => item.idEmpleado == _employeeId)
+                initialValue:
+                    widget.empleados.any(
+                      (item) => item.idEmpleado == _employeeId,
+                    )
                     ? _employeeId
                     : null,
                 decoration: const InputDecoration(labelText: 'Empleado'),
@@ -271,10 +294,12 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
                     ),
                 ],
                 onChanged: (value) => setState(() => _employeeId = value),
-                validator: (value) => value == null ? 'Seleccione un empleado' : null,
+                validator: (value) =>
+                    value == null ? 'Seleccione un empleado' : null,
               ),
               DropdownButtonFormField<int>(
-                initialValue: widget.puestos.any((item) => item.idPuesto == _puestoId)
+                initialValue:
+                    widget.puestos.any((item) => item.idPuesto == _puestoId)
                     ? _puestoId
                     : null,
                 decoration: const InputDecoration(labelText: 'Puesto'),
@@ -286,15 +311,22 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
                     ),
                 ],
                 onChanged: (value) => setState(() => _puestoId = value),
-                validator: (value) => value == null ? 'Seleccione un puesto' : null,
+                validator: (value) =>
+                    value == null ? 'Seleccione un puesto' : null,
               ),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
-        FilledButton(onPressed: _submit, child: Text(editing ? 'Guardar' : 'Crear')),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(editing ? 'Guardar' : 'Crear'),
+        ),
       ],
     );
   }
@@ -357,11 +389,11 @@ class _EmptyView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text('No hay turnos registrados.'),
-        ),
-      );
+    child: Padding(
+      padding: EdgeInsets.all(32),
+      child: Text('No hay turnos registrados.'),
+    ),
+  );
 }
 
 class _ErrorView extends StatelessWidget {

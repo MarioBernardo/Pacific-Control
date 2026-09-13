@@ -17,19 +17,21 @@ void main() {
   };
 
   DispositivoService serviceFor(http.Client client) => DispositivoService(
-        AuthenticatedApiClient(
-          client: client,
-          baseUrl: 'http://api.test',
-          accessToken: () => 'TEST_TOKEN',
-          onUnauthorized: () async {},
-        ),
-      );
+    AuthenticatedApiClient(
+      client: client,
+      baseUrl: 'http://api.test',
+      accessToken: () => 'TEST_TOKEN',
+      onUnauthorized: () async {},
+    ),
+  );
 
   test('GET list and individual device preserve id_puesto', () async {
     final service = serviceFor(
       MockClient((request) async {
         final body = request.url.path == '/dispositivos'
-            ? {'data': [dispositivoJson]}
+            ? {
+                'data': [dispositivoJson],
+              }
             : {'data': dispositivoJson};
         return http.Response(jsonEncode(body), 200);
       }),
@@ -74,11 +76,13 @@ void main() {
       );
       await expectLater(
         service.getAll(),
-        throwsA(isA<ApiException>().having(
-          (error) => error.statusCode,
-          'status',
-          entry.key,
-        )),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.statusCode,
+            'status',
+            entry.key,
+          ),
+        ),
       );
     }
   });

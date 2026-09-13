@@ -30,11 +30,11 @@ class Turno {
   }
 
   Map<String, dynamic> toJson() => {
-        'fecha': fecha,
-        'hora_inicio': horaInicio,
-        'hora_fin': horaFin,
-        'estado': estado,
-        'id_empleado': idEmpleado,
-        'id_puesto': idPuesto,
-      };
+    'fecha': fecha,
+    'hora_inicio': horaInicio,
+    'hora_fin': horaFin,
+    'estado': estado,
+    'id_empleado': idEmpleado,
+    'id_puesto': idPuesto,
+  };
 }

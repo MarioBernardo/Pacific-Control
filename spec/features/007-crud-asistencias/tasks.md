@@ -1,15 +1,13 @@
 # Tareas
 
-- [ ] Crear el modelo de Asistencia.
-- [ ] Crear el repositorio.
-- [ ] Crear el servicio.
-- [ ] Crear las rutas CRUD.
-- [ ] Implementar la asociación con empleados, turnos y dispositivos.
-- [ ] Implementar validaciones.
-- [ ] Implementar respuestas JSON.
+- [x] Crear el modelo, repositorio, servicio y rutas CRUD.
+- [x] Implementar asociaciones con empleados, turnos y dispositivos.
+- [x] Implementar validaciones, respuestas JSON y caché.
+- [x] Crear gestión Flutter con listado, formulario y cambio de estado.
+- [x] Agregar pruebas backend y Flutter.
 - [ ] Realizar pruebas con Postman.
-- [ ] Documentar el módulo.
+- [x] Documentar el módulo.
 
 ## Estado
 
-🚧 En desarrollo
+✅ Implementado y probado automáticamente; pendiente Postman.

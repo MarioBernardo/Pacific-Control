@@ -26,7 +26,7 @@ class HomePage extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',
-          onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+            onPressed: () => ref.read(authControllerProvider.notifier).logout(),
             icon: const Icon(Icons.logout),
           ),
         ],
@@ -76,6 +76,18 @@ class HomePage extends ConsumerWidget {
               onPressed: () => context.push('/turnos'),
               icon: const Icon(Icons.schedule),
               label: const Text('Ver turnos'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => context.push('/asistencias'),
+              icon: const Icon(Icons.fact_check),
+              label: const Text('Ver asistencias'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => context.push('/novedades'),
+              icon: const Icon(Icons.add_alert),
+              label: const Text('Ver novedades'),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
@@ -158,8 +170,10 @@ class _FutureModulesCard extends StatelessWidget {
                 color: AppColors.orangeSurface,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.dashboard_outlined,
-                  color: AppColors.darkBlue),
+              child: const Icon(
+                Icons.dashboard_outlined,
+                color: AppColors.darkBlue,
+              ),
             ),
             const SizedBox(width: 14),
             const Expanded(
@@ -168,9 +182,7 @@ class _FutureModulesCard extends StatelessWidget {
                 children: [
                   Text('Módulos operativos'),
                   SizedBox(height: 4),
-                  Text(
-                    'Esta sección se habilitará en próximas etapas.',
-                  ),
+                  Text('Esta sección se habilitará en próximas etapas.'),
                 ],
               ),
             ),

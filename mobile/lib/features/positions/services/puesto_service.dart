@@ -16,10 +16,7 @@ class PuestoService {
   Future<List<Puesto>> getAll() async {
     final response = await _apiClient.get('/puestos') as Map<String, dynamic>;
     final data = response['data'] as List<dynamic>;
-    return data
-        .cast<Map<String, dynamic>>()
-        .map(Puesto.fromJson)
-        .toList();
+    return data.cast<Map<String, dynamic>>().map(Puesto.fromJson).toList();
   }
 
   Future<Puesto> create(Puesto puesto) async {

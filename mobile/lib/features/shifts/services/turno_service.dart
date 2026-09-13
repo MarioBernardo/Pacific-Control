@@ -20,7 +20,8 @@ class TurnoService {
   }
 
   Future<Turno> getById(int turnoId) async {
-    final response = await _apiClient.get('/turnos/$turnoId') as Map<String, dynamic>;
+    final response =
+        await _apiClient.get('/turnos/$turnoId') as Map<String, dynamic>;
     return Turno.fromJson(response['data'] as Map<String, dynamic>);
   }
 

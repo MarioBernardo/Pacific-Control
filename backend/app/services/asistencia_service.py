@@ -6,6 +6,7 @@ from app.models.dispositivo import Dispositivo
 from app.models.empleado import Empleado
 from app.models.turno import Turno
 from app.repositories.asistencia_repository import AsistenciaRepository
+from app.services.cache_service import cache_service
 from app.services.crud_utils import (
     CrudValidationError,
     optional_string,
@@ -62,6 +63,8 @@ class AsistenciaService:
         asistencia = self.repository.get_by_id(asistencia_id)
         if asistencia is None:
             return None
+        if not isinstance(payload, dict):
+            raise CrudValidationError({"body": "El cuerpo debe ser un objeto JSON."})
         if set(payload) != {"estado"}:
             raise CrudValidationError({"estado": "Debe enviar únicamente el estado."})
         errors = {}

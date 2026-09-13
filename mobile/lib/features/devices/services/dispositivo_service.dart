@@ -14,16 +14,16 @@ class DispositivoService {
   final AuthenticatedApiClient _apiClient;
 
   Future<List<Dispositivo>> getAll() async {
-    final response = await _apiClient.get('/dispositivos') as Map<String, dynamic>;
+    final response =
+        await _apiClient.get('/dispositivos') as Map<String, dynamic>;
     final data = response['data'] as List<dynamic>;
-    return data
-        .cast<Map<String, dynamic>>()
-        .map(Dispositivo.fromJson)
-        .toList();
+    return data.cast<Map<String, dynamic>>().map(Dispositivo.fromJson).toList();
   }
 
   Future<Dispositivo> getById(int dispositivoId) async {
-    final response = await _apiClient.get('/dispositivos/$dispositivoId') as Map<String, dynamic>;
+    final response = await _apiClient.get(
+      '/dispositivos/$dispositivoId',
+    ) as Map<String, dynamic>;
     return Dispositivo.fromJson(response['data'] as Map<String, dynamic>);
   }
 

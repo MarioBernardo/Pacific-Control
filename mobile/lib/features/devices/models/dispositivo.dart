@@ -24,9 +24,9 @@ class Dispositivo {
   }
 
   Map<String, dynamic> toJson() => {
-        'codigo_dispositivo': codigoDispositivo,
-        'modelo': modelo,
-        'estado': estado,
-        'id_puesto': idPuesto,
-      };
+    'codigo_dispositivo': codigoDispositivo,
+    'modelo': modelo,
+    'estado': estado,
+    'id_puesto': idPuesto,
+  };
 }

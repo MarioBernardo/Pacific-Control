@@ -15,9 +15,15 @@ class DispositivosPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dispositivos = ref.watch(dispositivosProvider);
-    final position = ref.watch(authControllerProvider).session?.employee.position;
-    final canManage = {'ADMINISTRADOR', 'SUPERVISOR'}
-        .contains(position?.trim().toUpperCase());
+    final position = ref
+        .watch(authControllerProvider)
+        .session
+        ?.employee
+        .position;
+    final canManage = {
+      'ADMINISTRADOR',
+      'SUPERVISOR',
+    }.contains(position?.trim().toUpperCase());
 
     return Scaffold(
       appBar: AppBar(
@@ -45,7 +51,8 @@ class DispositivosPage extends ConsumerWidget {
         data: (items) => items.isEmpty
             ? const _EmptyView()
             : RefreshIndicator(
-                onRefresh: () => ref.read(dispositivosProvider.notifier).reload(),
+                onRefresh: () =>
+                    ref.read(dispositivosProvider.notifier).reload(),
                 child: ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: items.length,
@@ -76,10 +83,8 @@ class DispositivosPage extends ConsumerWidget {
     }
     final result = await showDialog<Dispositivo>(
       context: context,
-      builder: (_) => _DeviceFormDialog(
-        dispositivo: dispositivo,
-        puestos: puestos,
-      ),
+      builder: (_) =>
+          _DeviceFormDialog(dispositivo: dispositivo, puestos: puestos),
     );
     if (result == null || !context.mounted) return;
     try {
@@ -113,9 +118,8 @@ class DispositivosPage extends ConsumerWidget {
     try {
       await ref.read(dispositivosProvider.notifier).changeStatus(dispositivo);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Estado actualizado.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Estado actualizado.')));
       }
     } on ApiException catch (error) {
       if (context.mounted) _showError(context, error);
@@ -123,9 +127,8 @@ class DispositivosPage extends ConsumerWidget {
   }
 
   void _showError(BuildContext context, ApiException error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error.message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(error.message)));
   }
 }
 
@@ -219,7 +222,9 @@ class _DeviceFormDialogState extends State<_DeviceFormDialog> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.dispositivo != null;
-    final selectedExists = widget.puestos.any((item) => item.idPuesto == _selectedPuestoId);
+    final selectedExists = widget.puestos.any(
+      (item) => item.idPuesto == _selectedPuestoId,
+    );
     return AlertDialog(
       title: Text(editing ? 'Editar dispositivo' : 'Nuevo dispositivo'),
       content: Form(
@@ -253,7 +258,8 @@ class _DeviceFormDialogState extends State<_DeviceFormDialog> {
                     ),
                 ],
                 onChanged: (value) => setState(() => _selectedPuestoId = value),
-                validator: (value) => value == null ? 'Seleccione un puesto' : null,
+                validator: (value) =>
+                    value == null ? 'Seleccione un puesto' : null,
               ),
             ],
           ),

@@ -14,9 +14,15 @@ class PuestosPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final puestos = ref.watch(puestosProvider);
-    final position = ref.watch(authControllerProvider).session?.employee.position;
-    final canManage = {'ADMINISTRADOR', 'SUPERVISOR'}
-        .contains(position?.trim().toUpperCase());
+    final position = ref
+        .watch(authControllerProvider)
+        .session
+        ?.employee
+        .position;
+    final canManage = {
+      'ADMINISTRADOR',
+      'SUPERVISOR',
+    }.contains(position?.trim().toUpperCase());
 
     return Scaffold(
       appBar: AppBar(
@@ -80,7 +86,11 @@ class PuestosPage extends ConsumerWidget {
       }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(puesto == null ? 'Puesto creado.' : 'Puesto actualizado.')),
+          SnackBar(
+            content: Text(
+              puesto == null ? 'Puesto creado.' : 'Puesto actualizado.',
+            ),
+          ),
         );
       }
     } on ApiException catch (error) {
@@ -101,9 +111,8 @@ class PuestosPage extends ConsumerWidget {
   }
 
   void _showError(BuildContext context, ApiException error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error.message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(error.message)));
   }
 }
 
@@ -216,8 +225,14 @@ class _PuestoFormDialogState extends State<_PuestoFormDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => context.pop(), child: const Text('Cancelar')),
-        FilledButton(onPressed: _submit, child: Text(editing ? 'Guardar' : 'Crear')),
+        TextButton(
+          onPressed: () => context.pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(editing ? 'Guardar' : 'Crear'),
+        ),
       ],
     );
   }

@@ -65,7 +65,7 @@ class NovedadService:
         )
 
     def update(self, novedad_id: int, payload: dict) -> Novedad | None:
-        novedad = self.get_by_id(novedad_id)
+        novedad = self.repository.get_by_id(novedad_id)
 
         if novedad is None:
             return None
@@ -92,6 +92,8 @@ class NovedadService:
         if novedad is None:
             return None
 
+        if not isinstance(payload, dict):
+            raise CrudValidationError({"body": "El cuerpo debe ser un objeto JSON."})
         if set(payload) != {"estado"}:
             raise CrudValidationError(
                 {"estado": "Debe enviar únicamente el estado."}

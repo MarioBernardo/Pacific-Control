@@ -21,10 +21,10 @@ class Puesto {
   }
 
   Map<String, dynamic> toJson() => {
-        'nombre_puesto': nombrePuesto,
-        'direccion': direccion,
-        'estado': estado,
-      };
+    'nombre_puesto': nombrePuesto,
+    'direccion': direccion,
+    'estado': estado,
+  };
 
   Puesto copyWith({
     int? idPuesto,

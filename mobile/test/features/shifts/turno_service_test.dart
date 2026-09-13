@@ -19,19 +19,21 @@ void main() {
   };
 
   TurnoService serviceFor(http.Client client) => TurnoService(
-        AuthenticatedApiClient(
-          client: client,
-          baseUrl: 'http://api.test',
-          accessToken: () => 'TEST_TOKEN',
-          onUnauthorized: () async {},
-        ),
-      );
+    AuthenticatedApiClient(
+      client: client,
+      baseUrl: 'http://api.test',
+      accessToken: () => 'TEST_TOKEN',
+      onUnauthorized: () async {},
+    ),
+  );
 
   test('GET list and individual shift preserve dates and relations', () async {
     final service = serviceFor(
       MockClient((request) async {
         final body = request.url.path == '/turnos'
-            ? {'data': [turnoJson]}
+            ? {
+                'data': [turnoJson],
+              }
             : {'data': turnoJson};
         return http.Response(jsonEncode(body), 200);
       }),

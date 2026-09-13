@@ -21,6 +21,29 @@ Este feature implementa el módulo encargado de administrar los registros de asi
 - Cambiar el estado de una asistencia.
 - Asociar una asistencia a un empleado, turno y dispositivo.
 
+## Contrato real
+
+| Método | Ruta | Roles | Éxito |
+|---|---|---|---|
+| POST | `/asistencias` | ADMINISTRADOR, SUPERVISOR, GUARDIA | `201` |
+| GET | `/asistencias`, `/asistencias/<id>` | Los tres roles | `200` |
+| PUT | `/asistencias/<id>` | ADMINISTRADOR, SUPERVISOR | `200` |
+| PATCH | `/asistencias/<id>/estado` | ADMINISTRADOR, SUPERVISOR | `200` |
+
+No existe `DELETE`; el estado permite la baja lógica. El body de creación usa
+`fecha_hora` ISO 8601, `latitud`, `longitud`, `estado`, `id_empleado`,
+`id_turno`, `id_dispositivo` y los opcionales `foto` y `observacion`.
+
+Las coordenadas se validan en los rangos geográficos, los IDs deben ser enteros
+positivos y las tres referencias deben existir. Los errores son `400` para datos
+inválidos, `401` para JWT ausente/inválido, `403` para permisos, `404` para
+recurso inexistente y `409` para conflictos de persistencia. No se añade un
+handler global `500` nuevo.
+
+Las lecturas y mutaciones utilizan `CacheService` e invalidan el registro y la
+colección. Flutter incluye listado, creación, edición, cambio de estado,
+selección de Empleado/Turno/Dispositivo, loading, retry, vacío y errores HTTP.
+
 ## Reglas de negocio
 
 - Cada asistencia debe tener un identificador único.
@@ -31,4 +54,10 @@ Este feature implementa el módulo encargado de administrar los registros de asi
 
 ## Resultado esperado
 
-El backend dispondrá de un módulo completo para la administración de asistencias mediante una API REST organizada y preparada para integrarse con los demás módulos del sistema.
+Backend y Flutter disponen de gestión funcional de asistencias, respetando las
+relaciones existentes con Empleado, Turno y Dispositivo.
+
+## Pruebas realizadas
+
+- Backend: CRUD, validaciones, referencias, errores y roles.
+- Flutter: GET, POST, PUT, PATCH, relaciones y error `403`.

@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/dispositivo.dart';
 import '../services/dispositivo_service.dart';
 
-final dispositivosProvider = AsyncNotifierProvider<DispositivosController, List<Dispositivo>>(
-  DispositivosController.new,
-);
+final dispositivosProvider =
+    AsyncNotifierProvider<DispositivosController, List<Dispositivo>>(
+      DispositivosController.new,
+    );
 
 class DispositivosController extends AsyncNotifier<List<Dispositivo>> {
   DispositivoService get _service => ref.read(dispositivoServiceProvider);
