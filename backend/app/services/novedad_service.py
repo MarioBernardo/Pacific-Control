@@ -59,7 +59,7 @@ class NovedadService:
 
     def get_all(self) -> list[Novedad]:
         return cache_service.get_all(
-            "novedad",
+            "novedades",
             Novedad,
             lambda: self.repository.get_all(),
         )

@@ -212,6 +212,11 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
   late final TextEditingController _statusController;
   late int? _employeeId;
   late int? _puestoId;
+  late String _tipoTurno;
+  late String _tipoAsignacion;
+
+  static const _tiposTurno = ['24 HORAS', '12 HORAS', 'MIXTO'];
+  static const _tiposAsignacion = ['FIJO', 'SACA_FRANCO'];
 
   @override
   void initState() {
@@ -224,6 +229,8 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
     );
     _employeeId = widget.turno?.idEmpleado;
     _puestoId = widget.turno?.idPuesto;
+    _tipoTurno = widget.turno?.tipoTurno ?? '24 HORAS';
+    _tipoAsignacion = widget.turno?.tipoAsignacion ?? 'FIJO';
   }
 
   @override
@@ -277,6 +284,36 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
                 controller: _statusController,
                 decoration: const InputDecoration(labelText: 'Estado'),
                 validator: _required,
+              ),
+              DropdownButtonFormField<String>(
+                // ignore: deprecated_member_use
+                value: _tiposTurno.contains(_tipoTurno)
+                    ? _tipoTurno
+                    : _tiposTurno.first,
+                decoration: const InputDecoration(labelText: 'Tipo de turno'),
+                items: [
+                  for (final t in _tiposTurno)
+                    DropdownMenuItem(value: t, child: Text(t)),
+                ],
+                onChanged: (v) => setState(() => _tipoTurno = v ?? _tipoTurno),
+              ),
+              DropdownButtonFormField<String>(
+                // ignore: deprecated_member_use
+                value: _tiposAsignacion.contains(_tipoAsignacion)
+                    ? _tipoAsignacion
+                    : _tiposAsignacion.first,
+                decoration: const InputDecoration(
+                  labelText: 'Tipo de asignación',
+                ),
+                items: [
+                  for (final t in _tiposAsignacion)
+                    DropdownMenuItem(
+                      value: t,
+                      child: Text(t == 'SACA_FRANCO' ? 'SACA FRANCO' : t),
+                    ),
+                ],
+                onChanged: (v) =>
+                    setState(() => _tipoAsignacion = v ?? _tipoAsignacion),
               ),
               DropdownButtonFormField<int>(
                 initialValue:
@@ -377,8 +414,8 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
         horaInicio: _startController.text.trim(),
         horaFin: _endController.text.trim(),
         estado: _statusController.text.trim(),
-        tipoTurno: '24 HORAS',
-        tipoAsignacion: 'FIJO',
+        tipoTurno: _tipoTurno,
+        tipoAsignacion: _tipoAsignacion,
         idEmpleado: _employeeId!,
         idPuesto: _puestoId!,
       ),

@@ -15,6 +15,9 @@ from app.services.crud_utils import (
     validate_payload,
 )
 
+VALID_TIPO_TURNO = frozenset({"24 HORAS", "12 HORAS", "MIXTO"})
+VALID_TIPO_ASIGNACION = frozenset({"FIJO", "SACA_FRANCO"})
+
 
 class TurnoService:
     _required_fields = ("fecha", "hora_inicio", "hora_fin", "estado", "id_empleado", "id_puesto")
@@ -42,6 +45,10 @@ class TurnoService:
         return cache_service.get_all(
             "turnos", Turno, lambda: self.repository.get_all()
         )
+
+    def get_active_by_puesto(self, puesto_id: int) -> list[Turno]:
+        """Return active turnos for a puesto — used by the operative flow."""
+        return self.repository.get_active_by_puesto(puesto_id)
 
     def update(self, turno_id: int, payload: dict) -> Turno | None:
         turno = self.repository.get_by_id(turno_id)
@@ -88,6 +95,16 @@ class TurnoService:
             value = validator()
             if field in payload and value is not None:
                 data[field] = value
+
+        # Validate enum values only when present
+        if "tipo_turno" in data and data["tipo_turno"] not in VALID_TIPO_TURNO:
+            errors["tipo_turno"] = (
+                f"Valor no permitido. Use: {', '.join(sorted(VALID_TIPO_TURNO))}."
+            )
+        if "tipo_asignacion" in data and data["tipo_asignacion"] not in VALID_TIPO_ASIGNACION:
+            errors["tipo_asignacion"] = (
+                f"Valor no permitido. Use: {', '.join(sorted(VALID_TIPO_ASIGNACION))}."
+            )
         raise_if_invalid(errors, data, require_all)
         return data
 

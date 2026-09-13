@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from app.auth.authorization import cargo_required
 from app.models.turno import Turno
 from app.services.crud_utils import CrudConflictError, CrudValidationError
-from app.services.turno_service import TurnoService
+from app.services.turno_service import TurnoService, VALID_TIPO_TURNO, VALID_TIPO_ASIGNACION
 
 
 turnos_bp = Blueprint("turnos", __name__, url_prefix="/turnos")
@@ -10,7 +10,17 @@ turno_service = TurnoService()
 
 
 def _serialize_turno(turno: Turno) -> dict:
-    return {"id_turno": turno.id_turno, "fecha": turno.fecha.isoformat(), "hora_inicio": turno.hora_inicio.isoformat(), "hora_fin": turno.hora_fin.isoformat(), "estado": turno.estado, "tipo_turno": turno.tipo_turno, "tipo_asignacion": turno.tipo_asignacion, "id_empleado": turno.id_empleado, "id_puesto": turno.id_puesto}
+    return {
+        "id_turno": turno.id_turno,
+        "fecha": turno.fecha.isoformat(),
+        "hora_inicio": turno.hora_inicio.isoformat(),
+        "hora_fin": turno.hora_fin.isoformat(),
+        "estado": turno.estado,
+        "tipo_turno": turno.tipo_turno,
+        "tipo_asignacion": turno.tipo_asignacion,
+        "id_empleado": turno.id_empleado,
+        "id_puesto": turno.id_puesto,
+    }
 
 
 def _payload():
@@ -77,3 +87,15 @@ def change_turno_status(turno_id: int):
     if turno is None:
         return jsonify({"error": "Turno no encontrado."}), 404
     return jsonify({"data": _serialize_turno(turno)}), 200
+
+
+@turnos_bp.get("/meta/opciones")
+@cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
+def turno_options():
+    """Return the valid enum values for tipo_turno and tipo_asignacion."""
+    return jsonify({
+        "data": {
+            "tipo_turno": sorted(VALID_TIPO_TURNO),
+            "tipo_asignacion": sorted(VALID_TIPO_ASIGNACION),
+        }
+    }), 200

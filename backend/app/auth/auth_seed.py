@@ -39,6 +39,16 @@ DEMO_USERS = (
         "estado": True,
     },
     {
+        "cedula": "0900000099",
+        "nombres": "Guardia",
+        "apellidos": "Demo",
+        "correo": "guardia.demo@pacific.test",
+        "telefono": "0990000099",
+        "cargo": "GUARDIA",
+        "password": "Guardia123!",
+        "estado": True,
+    },
+    {
         "cedula": "0900000004",
         "nombres": "Inactivo",
         "apellidos": "Demo",

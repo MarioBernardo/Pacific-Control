@@ -2,120 +2,299 @@
 
 ## 1. Introducción
 
-Pacific Control es un sistema en desarrollo para la gestión de asistencias, turnos y novedades operativas del personal de seguridad. El proyecto está estructurado alrededor de un backend Flask, una base de datos PostgreSQL y una aplicación móvil planificada.
+Pacific Control es un sistema para la gestión de asistencias, turnos y novedades operativas del personal de seguridad. El proyecto comprende un backend Flask, una base de datos PostgreSQL y una aplicación móvil Flutter lista para ejecutarse en emulador Android.
 
-Este documento describe la implementación actual y las funcionalidades documentadas en `spec/`. Las capacidades planificadas se identifican como tales y no se describen como funcionalidades implementadas.
+Este documento describe la arquitectura implementada y el estado actual del sistema.
+
+---
 
 ## 2. Propósito
 
-El propósito de Pacific Control es proporcionar una base técnica para registrar y administrar la información del personal operativo, los turnos asignados, los registros de asistencia y las novedades reportadas mediante una API REST que puede ser consumida por una aplicación móvil.
+Proporcionar una plataforma para registrar y administrar el personal operativo, los turnos asignados, los registros de asistencia y las novedades reportadas, con soporte para el flujo operativo real de identificación de guardias desde dispositivos físicos asignados a puestos/edificios.
+
+---
 
 ## 3. Alcance
 
-El alcance implementado consiste en la base del backend: inicialización de la aplicación Flask, configuración mediante variables de entorno, integración de SQLAlchemy, migraciones de base de datos y el modelo de dominio inicial.
+El sistema está completamente implementado y demostrable de extremo a extremo:
 
-Los módulos de dominio para empleados, puestos, dispositivos, turnos, asistencias y novedades están especificados, pero sus rutas CRUD, servicios, repositorios y esquemas aún no están implementados. El cliente móvil también está planificado; no existe una implementación móvil en el proyecto.
+- Backend REST funcional con autenticación JWT y autorización por roles.
+- CRUD completo de empleados, puestos, dispositivos, turnos, asistencias y novedades.
+- Flujo operativo de identificación de guardia: dispositivo → puesto → guardias disponibles → identificación → asistencia/novedad.
+- Aplicación Flutter con Riverpod, go_router, navegación protegida y AuthenticatedApiClient.
+- Redis como caché y almacenamiento temporal de sesión operativa.
+- Celery para procesamiento asíncrono de novedades.
+- Seed idempotente con datos operativos reales de 4 edificios.
+
+---
 
 ## 4. Arquitectura General
 
-El proyecto sigue una arquitectura de backend por capas. La fábrica de aplicaciones actual inicializa Flask, carga la configuración, registra las extensiones y expone las rutas disponibles.
+### Backend (Flask)
 
-La estructura prevista separa las siguientes responsabilidades:
+```
+Routes (HTTP only)
+  └── Services (business rules)
+       └── Repositories (data access)
+            └── Models (SQLAlchemy ORM)
+```
 
-- Models: entidades de persistencia y relaciones.
-- Repositories: operaciones de acceso a datos.
-- Services: lógica de negocio.
-- Routes: manejo de solicitudes HTTP y respuestas JSON.
-- Schemas: validación de solicitudes y respuestas.
-- Auth: componentes de autenticación.
-- Workers: procesamiento de tareas en segundo plano.
-- Utils: utilidades compartidas.
+**Extensiones registradas:**
+- `SQLAlchemy` — ORM PostgreSQL
+- `Flask-Migrate / Alembic` — migraciones
+- `RedisCache` — caché y almacenamiento temporal
+- `JWTManager` — autenticación Bearer token
+- `Celery` — tareas asíncronas (broker: Redis)
 
-Actualmente, existen los modelos y el módulo de rutas base. Las capas restantes están reservadas para las funcionalidades planificadas.
+**Application Factory** (`create_app`): carga configuración desde `.env`, inicializa extensiones, registra 9 blueprints.
 
-## 5. Componentes de Software
+### Mobile (Flutter)
 
-| Componente | Estado actual | Responsabilidad |
-| --- | --- | --- |
-| Aplicación Flask | Implementado | Crea y configura la aplicación backend. |
-| Configuración | Implementado | Carga las variables de entorno y la configuración de la base de datos. |
-| SQLAlchemy | Implementado | Define los modelos ORM y la integración con la base de datos. |
-| Flask-Migrate / Alembic | Implementado | Gestiona las migraciones del esquema de base de datos. |
-| Ruta principal | Implementado | Proporciona la respuesta de estado `GET /`. |
-| Módulos CRUD | Planificado | Administran empleados, puestos, dispositivos, turnos, asistencias y novedades. |
-| Cliente móvil | Planificado | Consume la API REST. |
+```
+go_router (navegación declarativa)
+  └── Screens (ConsumerWidget)
+       └── Providers/Controllers (Riverpod)
+            └── Services (HTTP via AuthenticatedApiClient)
+```
 
-## 6. Descripción General de la Base de Datos
+**Providers de estado:**
+- `authControllerProvider` — estado global de autenticación
+- `authenticatedApiClientProvider` — cliente HTTP compartido
+- Providers por feature: puestos, dispositivos, turnos, asistencias, novedades, empleados, operacion
 
-PostgreSQL es la base de datos relacional configurada, a la que se accede mediante SQLAlchemy. La migración inicial de Alembic crea las siguientes tablas:
+---
 
-| Tabla | Descripción | Relaciones principales |
-| --- | --- | --- |
-| `empleados` | Registros del personal. | Tiene turnos, registros de asistencia y novedades. |
-| `puestos` | Puestos operativos. | Tiene dispositivos y turnos. |
-| `dispositivos` | Dispositivos asignados a puestos. | Pertenece a un puesto; tiene registros de asistencia. |
-| `turnos` | Asignaciones de personal por fecha y hora. | Pertenece a un empleado y un puesto; tiene registros de asistencia y novedades. |
-| `asistencias` | Registros de asistencia con fecha, hora, ubicación y evidencia opcional. | Pertenece a un empleado, turno y dispositivo. |
-| `novedades` | Incidencias operativas. | Pertenece a un empleado y un turno. |
+## 5. Autenticación y Autorización
 
-Las claves primarias identifican cada registro. La base de datos aplica las relaciones de claves foráneas documentadas y valores únicos para la identificación y el correo electrónico del empleado, así como para el código del dispositivo.
+### JWT (Backend)
 
-## 7. Arquitectura del Backend
+- **Login:** `POST /auth/login` → `{correo, password}` → `{access_token, empleado}`
+- **Token:** HS256, expira en 15 min, claims: `{sub: id_empleado, cargo, correo}`
+- **Guard:** `active_employee_required` — verifica JWT + estado activo del empleado en BD en cada request
+- **Roles:** `cargo_required(*roles)` — verifica cargo del empleado
 
-El punto de entrada del backend es `backend/run.py`, que crea la aplicación mediante `create_app()`. La fábrica de aplicaciones inicializa las extensiones SQLAlchemy y Flask-Migrate, importa los modelos de dominio y registra el blueprint principal.
+### Matriz de permisos
 
-La configuración se carga desde `backend/.env` mediante `config.py`. La conexión a la base de datos se obtiene de `DATABASE_URL`; la configuración actual incluye valores predeterminados de desarrollo. El backend actualmente se ejecuta en modo de desarrollo de Flask cuando se inicia directamente.
+| Endpoint | ADMINISTRADOR | SUPERVISOR | GUARDIA |
+|---|---|---|---|
+| POST /empleados | ✅ | ❌ | ❌ |
+| GET /empleados | ✅ | ✅ | ❌ |
+| PUT /empleados/:id | ✅ | ❌ | ❌ |
+| PATCH /empleados/:id/estado | ✅ | ❌ | ❌ |
+| POST/PUT /puestos | ✅ | ✅ | ❌ |
+| GET /puestos | ✅ | ✅ | ✅ |
+| POST/PUT /dispositivos | ✅ | ✅ | ❌ |
+| GET /dispositivos | ✅ | ✅ | ✅ |
+| POST/PUT /turnos | ✅ | ✅ | ❌ |
+| GET /turnos | ✅ | ✅ | ✅ |
+| POST /asistencias | ✅ | ✅ | ✅ |
+| GET /asistencias | ✅ | ✅ | ✅ |
+| PUT /asistencias/:id | ✅ | ✅ | ❌ |
+| POST /novedades | ✅ | ✅ | ✅ |
+| GET /novedades | ✅ | ✅ | ✅ |
+| PUT /novedades/:id | ✅ | ✅ | ❌ |
+| GET/POST/DELETE /operacion/* | ✅ | ✅ | ✅ |
 
-## 8. Descripción General de la API REST
+### Sesión operativa (no administrativa)
 
-El único endpoint de API implementado es:
+Los endpoints `/operacion/*` solo requieren un token JWT válido de cualquier rol. La sesión operativa:
+- **No otorga** permisos administrativos.
+- **No utiliza** una cuenta con cargo privilegiado para simular la operación.
+- **No almacena** credenciales — solo el estado temporal del guardia identificado.
+- Se almacena en Redis con TTL de 12 horas.
 
-| Método | Ruta | Comportamiento actual |
-| --- | --- | --- |
-| `GET` | `/` | Devuelve una respuesta JSON que identifica a Pacific Control e informa que el backend está funcionando. |
+### Mobile
 
-Los endpoints REST para los módulos CRUD están planificados en las funcionalidades 003 a 008. Sus rutas, validaciones, contratos JSON y servicios de negocio aún no están implementados.
+- `AuthController` gestiona el estado de autenticación (restoring / unauthenticated / authenticated)
+- `AuthService` persiste el token en `FlutterSecureStorage`
+- go_router protege todas las rutas: no autenticado → `/login`
+- `AuthenticatedApiClient` inyecta `Authorization: Bearer <token>` en cada request y hace logout automático en 401
 
-## 9. Estrategia de Autenticación
+---
 
-La autenticación está planificada en la funcionalidad 002 y no está implementada. La estrategia prevista utiliza JSON Web Tokens (JWT) para autenticar usuarios, emitir tokens después de validar credenciales y proteger las rutas que requieren autorización.
+## 6. Flujo Operativo del Guardia
 
-Actualmente no se encuentra configurada en el backend una biblioteca JWT, un endpoint de inicio de sesión, un modelo de credenciales de usuario ni protección de rutas.
+### Modelo de datos
 
-## 10. Estrategia de Rendimiento
+```
+Dispositivo (codigo_dispositivo)
+  └── Puesto/Edificio (a través de id_puesto)
+       └── Turnos activos (Turno.id_puesto == puesto.id_puesto AND estado == "activo")
+            └── Empleados con tipo_asignacion: FIJO | SACA_FRANCO
+```
 
-Las siguientes capacidades relacionadas con el rendimiento están planificadas y no están implementadas:
+**Reglas clave:**
+- El dispositivo pertenece al puesto, no al guardia.
+- El tipo de asignación (FIJO/SACA_FRANCO) es una propiedad del Turno, no del Empleado.
+- Un empleado puede ser FIJO en un puesto y SACA_FRANCO en otros.
+- Un empleado puede ser SACA_FRANCO en múltiples puestos.
 
-- Caché con Redis (funcionalidad 009) para el almacenamiento temporal de resultados de consultas frecuentes, con expiración e invalidación.
-- Prevención de N+1 (funcionalidad 010) mediante la carga controlada de las relaciones necesarias de SQLAlchemy.
-- Procesamiento asíncrono (funcionalidad 011) mediante Celery y Redis para tareas en segundo plano.
-- PgBouncer (funcionalidad 012) para centralizar las conexiones del backend a PostgreSQL.
+### Flujo visual en la app
 
-Estas funcionalidades deben incorporarse después de implementar sus dependencias y las rutas de acceso a datos asociadas.
+```
+Home → [Operación de dispositivo]
+  └── /operacion            → Lista dispositivos activos
+  └── /operacion/:id        → Info del dispositivo + puesto + botón "Seleccionar guardia"
+  └── /operacion/:id/guardias → Lista FIJO primero, luego SACA_FRANCO + confirmación
+  └── /operacion/:id/trabajo  → Guardia identificado + [Registrar asistencia] [Reportar novedad] [Cambiar guardia]
+```
 
-## 11. Descripción General del Despliegue
+### Endpoints operativos
 
-El repositorio proporciona actualmente una configuración de backend orientada al desarrollo: un entorno virtual de Python, configuración mediante variables de entorno, conectividad con PostgreSQL y migraciones de Alembic. Al ejecutar `backend/run.py` se inicia el servidor de desarrollo de Flask.
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| GET | `/operacion/dispositivos/<id>` | Info dispositivo + puesto |
+| GET | `/operacion/dispositivos/codigo/<codigo>` | Buscar por código (ej: BAVIERA-01) |
+| GET | `/operacion/dispositivos/<id>/guardias` | Guardias activos del puesto |
+| GET | `/operacion/dispositivos/<id>/sesion` | Sesión operativa actual |
+| POST | `/operacion/dispositivos/<id>/sesion/identificar` | Identificar guardia `{id_empleado}` |
+| DELETE | `/operacion/dispositivos/<id>/sesion` | Limpiar identificación |
 
-No existe configuración de contenedores, configuración de servidor de producción, definición de orquestación ni canalización de despliegue. Por lo tanto, los detalles del despliegue en producción aún deben definirse.
+---
 
-## 12. Tecnologías Utilizadas
+## 7. Modelo de Datos
 
-### Implementadas
+### Migraciones (cadena Alembic)
 
-- Python
-- Flask
-- Flask-SQLAlchemy
-- SQLAlchemy
-- PostgreSQL
-- Flask-Migrate y Alembic
-- python-dotenv
-- Git
+1. `82f1e6f726bd` — modelo inicial: 6 tablas base
+2. `f11e05b3b0f5` — agrega `password_hash` a `empleados`
+3. `a1b2c3d4e5f6` — agrega `tipo_turno` y `tipo_asignacion` a `turnos`
 
-### Planificadas
+### Tablas principales
 
-- Flutter para el cliente móvil
-- Flask-JWT-Extended para la autenticación JWT
-- Redis para caché e intermediación de tareas
-- Celery para procesamiento asíncrono
-- PgBouncer para la administración de conexiones de PostgreSQL
+| Tabla | Campos clave |
+|---|---|
+| `empleados` | id, cedula, nombres, apellidos, correo, password_hash, telefono, cargo, estado |
+| `puestos` | id, nombre_puesto, direccion, estado |
+| `dispositivos` | id, codigo_dispositivo, modelo, estado, id_puesto |
+| `turnos` | id, fecha, hora_inicio, hora_fin, estado, tipo_turno, tipo_asignacion, id_empleado, id_puesto |
+| `asistencias` | id, fecha_hora, latitud, longitud, foto, observacion, estado, id_empleado, id_turno, id_dispositivo |
+| `novedades` | id, tipo, descripcion, fecha_hora, estado, id_empleado, id_turno |
+
+### Valores permitidos
+
+- `tipo_turno`: `24 HORAS`, `12 HORAS`, `MIXTO`
+- `tipo_asignacion`: `FIJO`, `SACA_FRANCO`
+- `cargo`: `ADMINISTRADOR`, `SUPERVISOR`, `GUARDIA`
+- `puesto.estado`: `activo`, `inactivo`
+- `turno.estado`: `activo`, `inactivo`
+
+---
+
+## 8. Datos Operativos Oficiales
+
+El seed (`seed_operational.py`) es idempotente y crea:
+
+| Edificio | Dispositivo | Tipo turno | Guardias fijos | Saca francos |
+|----------|-------------|------------|----------------|--------------|
+| ED. BAVIERA | BAVIERA-01 | 24 HORAS | TIPANTUÑA TACO DIEGO, CACHIHUANGO CEPEDA HUMBERTO | BERNARDO CAMPO MARIO, BETANCOURTH TITUAÑA BYRON |
+| ED. CENTURY PLAZA I | CENTURY-01 | 24 HORAS | CAIZAPANTA ITURRALDE VINICIO, VELEZ QUIÑONEZ LUIS | BERNARDO CAMPO MARIO, BETANCOURTH TITUAÑA BYRON |
+| ED. GRAND VICTORIA | GRAND-VICTORIA-01 | 12 HORAS | MENDEZ AGUAS FRANKLIN, CEVALLOS SANCHEZ LENIN | PANGAY QUEVEDO STALIN |
+| ED. VERTICE | VERTICE-01 | MIXTO | DELGADO TITUAÑA ANDERSON | BERNARDO CAMPO MARIO, BETANCOURTH TITUAÑA BYRON |
+
+**Nota sobre MIXTO:** Vértice opera 12 horas de lunes a viernes y 24 horas sábado/domingo. Los horarios exactos no están definidos en el modelo actual.
+
+### Usuarios de demostración
+
+| Correo | Contraseña | Cargo | Estado |
+|--------|------------|-------|--------|
+| admin@pacific.test | Admin123! | ADMINISTRADOR | activo |
+| supervisor@pacific.test | Supervisor123! | SUPERVISOR | activo |
+| guardia@pacific.test | Guardia123! | GUARDIA | activo |
+| guardia.demo@pacific.test | Guardia123! | GUARDIA | activo |
+| inactivo@pacific.test | Inactivo123! | GUARDIA | **inactivo** |
+
+---
+
+## 9. Optimización
+
+### Redis (cache-aside)
+
+Todos los servicios CRUD aplican el patrón cache-aside:
+- **Hit:** retorna el valor cacheado, deserializa el modelo sin tocar la BD.
+- **Miss:** consulta la BD, cachea el resultado.
+- **Invalidación:** después de create/update/change_status, se eliminan las keys del item y de la lista.
+
+**Claves de caché:** `pacific-control:{resource}:{id}` y `pacific-control:{resource}:all`
+
+**Sesión operativa:** `pacific-control:operacion:sesion:{device_id}` — TTL 12 horas.
+
+### Celery
+
+Las novedades disparan `process_novedad.delay(id)` después de crearse. El task actual registra el evento (stub para procesamiento futuro como alertas o notificaciones).
+
+### Prevención de N+1
+
+Los endpoints de guardias (`/operacion/dispositivos/<id>/guardias`) consultan turnos y empleados en dos queries controladas (no por relación lazy). Las listas CRUD usan `.scalars().all()` en una sola query.
+
+### PgBouncer
+
+El backend es compatible con PgBouncer como capa de connection pooling entre la app y PostgreSQL. La configuración de PgBouncer es una decisión de infraestructura (no incluida en este repositorio). Se recomienda el modo `transaction` para cargas altas.
+
+---
+
+## 10. Pantallas Flutter
+
+| Ruta | Pantalla | Roles |
+|------|----------|-------|
+| `/login` | LoginPage | Público |
+| `/home` | HomePage | Todos |
+| `/empleados` | EmpleadosPage | ADMINISTRADOR |
+| `/puestos` | PuestosPage | Todos (gestión: ADMIN/SUP) |
+| `/dispositivos` | DispositivosPage | Todos (gestión: ADMIN/SUP) |
+| `/turnos` | TurnosPage | Todos (gestión: ADMIN/SUP) |
+| `/asistencias` | AsistenciasPage | Todos |
+| `/novedades` | NovedadesPage | Todos |
+| `/operacion` | DispositivoSeleccionPage | Todos |
+| `/operacion/:id` | DispositivoInfoPage | Todos |
+| `/operacion/:id/guardias` | GuardiaListaPage | Todos |
+| `/operacion/:id/trabajo` | GuardiaTrabajoPage | Todos |
+
+---
+
+## 11. Seguridad
+
+- Los tokens JWT se generan con HS256 y expiran a los 15 min.
+- La clave secreta requiere mínimo 32 bytes; si no está configurada se genera aleatoriamente.
+- Cada request a rutas protegidas verifica que el empleado existe y está activo en la BD (previene tokens stale).
+- El backend valida todos los payloads (tipos, longitudes, campos obligatorios, referencias FK).
+- La sesión operativa NO es un mecanismo de bypass de autorización.
+- Los secretos (JWT key, DB password, etc.) se inyectan por variables de entorno, nunca en el código.
+- Flutter no almacena secretos en código: usa `--dart-define=API_BASE_URL=...` en compilación.
+- El token se almacena en `FlutterSecureStorage` (Keychain/Keystore según plataforma).
+
+---
+
+## 12. Pruebas
+
+### Backend (pytest)
+
+Se ejecutan 67 tests en 9 archivos:
+
+| Archivo | Tests |
+|---------|-------|
+| test_auth_security.py | Login, JWT inválido/expirado, empleado inactivo |
+| test_role_security.py | Matriz de permisos, seed idempotente, roles |
+| test_puesto_crud.py | CRUD completo de puestos |
+| test_dispositivo_crud.py | CRUD completo de dispositivos |
+| test_turno_crud.py | CRUD completo de turnos + validación de estado |
+| test_asistencia_crud.py | CRUD completo de asistencias |
+| test_novedad_crud.py | CRUD completo de novedades |
+| test_operational_seed.py | Seed idempotente con datos oficiales |
+| test_operacion_flow.py | Flujo operativo: sesión, guardias, identificación, validación tipo_turno/tipo_asignacion, usuario guardia.demo |
+
+**Resultado:** `67 passed, 8 warnings` (los warnings son SAWarning de SQLAlchemy en el contexto de prueba con SQLite — no afectan producción con PostgreSQL).
+
+### Mobile (flutter test)
+
+29 tests en 7 archivos de servicios + widget test. `flutter analyze`: sin issues.
+
+---
+
+## 13. Defectos Preexistentes Conocidos
+
+| Defecto | Impacto | Estado |
+|---------|---------|--------|
+| Sin refresh token endpoint | El usuario debe re-loguearse cada 15 min | Documentado, no bloquea el flujo |
+| `BackendStatusPage` usa `Navigator.push` en lugar de go_router | Inconsistencia menor de navegación | No corregido (no bloquea) |
+| Token JWT no se invalida en servidor al hacer logout | El token permanece válido hasta expirar | Documentado, comportamiento típico de JWT stateless |

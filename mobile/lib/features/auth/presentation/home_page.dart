@@ -14,9 +14,13 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(authControllerProvider).session;
-    if (session == null) {
-      return const SizedBox.shrink();
-    }
+    if (session == null) return const SizedBox.shrink();
+
+    final position = session.employee.position.trim().toUpperCase();
+    final isAdmin = position == 'ADMINISTRADOR';
+    final isSupervisor = position == 'SUPERVISOR';
+    final canManage = isAdmin || isSupervisor;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -35,6 +39,7 @@ class HomePage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
+            // Header
             Row(
               children: [
                 const BrandLogo(height: 58),
@@ -54,40 +59,73 @@ class HomePage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 28),
+
+            // Session card
             _StatusCard(session: session),
-            const SizedBox(height: 20),
-            Text('Operación', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 24),
+
+            // ── Operación ──────────────────────────────────
+            Text('Operación', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 10),
             FilledButton.icon(
-              onPressed: () => context.push('/puestos'),
-              icon: const Icon(Icons.location_on_outlined),
-              label: const Text('Ver puestos'),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () => context.push('/dispositivos'),
-              icon: const Icon(Icons.phone_android_outlined),
-              label: const Text('Ver dispositivos'),
-            ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () => context.push('/turnos'),
-              icon: const Icon(Icons.schedule),
-              label: const Text('Ver turnos'),
+              onPressed: () => context.push('/operacion'),
+              icon: const Icon(Icons.security),
+              label: const Text('Operación de dispositivo'),
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () => context.push('/asistencias'),
               icon: const Icon(Icons.fact_check),
-              label: const Text('Ver asistencias'),
+              label: const Text('Asistencias'),
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () => context.push('/novedades'),
               icon: const Icon(Icons.add_alert),
-              label: const Text('Ver novedades'),
+              label: const Text('Novedades'),
             ),
-            const SizedBox(height: 12),
+
+            // ── Gestión (Admin/Supervisor) ─────────────────
+            if (canManage) ...[
+              const SizedBox(height: 24),
+              Text('Gestión', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: () => context.push('/puestos'),
+                icon: const Icon(Icons.location_on_outlined),
+                label: const Text('Puestos'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => context.push('/dispositivos'),
+                icon: const Icon(Icons.phone_android_outlined),
+                label: const Text('Dispositivos'),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => context.push('/turnos'),
+                icon: const Icon(Icons.schedule),
+                label: const Text('Turnos'),
+              ),
+            ],
+
+            // ── Administración (solo Admin) ─────────────────
+            if (isAdmin) ...[
+              const SizedBox(height: 24),
+              Text(
+                'Administración',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 10),
+              FilledButton.icon(
+                onPressed: () => context.push('/empleados'),
+                icon: const Icon(Icons.people_outlined),
+                label: const Text('Empleados'),
+              ),
+            ],
+
+            // ── Diagnóstico ─────────────────────────────────
+            const SizedBox(height: 24),
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.of(context).push(
@@ -158,7 +196,7 @@ class _BackendDiagnosticsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Diagnóstico de conexión')),
+      appBar: AppBar(title: const Text('Diagnóstico de conexión')),
       body: Center(child: BackendStatusPage()),
     );
   }

@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/attendance/presentation/asistencias_page.dart';
 import '../features/auth/auth_provider.dart';
 import '../features/auth/presentation/auth_loading_page.dart';
 import '../features/auth/presentation/home_page.dart';
 import '../features/auth/presentation/login_page.dart';
-import '../features/attendance/presentation/asistencias_page.dart';
-import '../features/incidents/presentation/novedades_page.dart';
 import '../features/devices/presentation/dispositivos_page.dart';
+import '../features/employees/presentation/empleados_page.dart';
+import '../features/incidents/presentation/novedades_page.dart';
+import '../features/operacion/presentation/dispositivo_info_page.dart';
+import '../features/operacion/presentation/dispositivo_seleccion_page.dart';
+import '../features/operacion/presentation/guardia_lista_page.dart';
+import '../features/operacion/presentation/guardia_trabajo_page.dart';
 import '../features/positions/presentation/puestos_page.dart';
 import '../features/shifts/presentation/turnos_page.dart';
 
@@ -23,41 +28,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authControllerProvider);
       final isLogin = state.matchedLocation == '/login';
 
-      if (authState.isRestoring) {
-        return null;
-      }
-      if (!authState.isAuthenticated && !isLogin) {
-        return '/login';
-      }
-      if (authState.isAuthenticated && isLogin) {
-        return '/home';
-      }
+      if (authState.isRestoring) return null;
+      if (!authState.isAuthenticated && !isLogin) return '/login';
+      if (authState.isAuthenticated && isLogin) return '/home';
       return null;
     },
     routes: [
       GoRoute(
         path: '/login',
-        builder: (context, state) {
-          return Consumer(
-            builder: (context, ref, child) {
-              return ref.watch(authControllerProvider).isRestoring
-                  ? const AuthLoadingPage()
-                  : const LoginPage();
-            },
-          );
-        },
+        builder: (context, state) => Consumer(
+          builder: (context, ref, _) =>
+              ref.watch(authControllerProvider).isRestoring
+              ? const AuthLoadingPage()
+              : const LoginPage(),
+        ),
       ),
       GoRoute(
         path: '/home',
-        builder: (context, state) {
-          return Consumer(
-            builder: (context, ref, child) {
-              return ref.watch(authControllerProvider).isRestoring
-                  ? const AuthLoadingPage()
-                  : const HomePage();
-            },
-          );
-        },
+        builder: (context, state) => Consumer(
+          builder: (context, ref, _) =>
+              ref.watch(authControllerProvider).isRestoring
+              ? const AuthLoadingPage()
+              : const HomePage(),
+        ),
+      ),
+      GoRoute(
+        path: '/empleados',
+        builder: (context, state) => const EmpleadosPage(),
       ),
       GoRoute(
         path: '/puestos',
@@ -75,6 +72,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/novedades',
         builder: (context, state) => const NovedadesPage(),
+      ),
+      // ── Operative flow ──────────────────────────────────────
+      GoRoute(
+        path: '/operacion',
+        builder: (context, state) => const DispositivoSeleccionPage(),
+      ),
+      GoRoute(
+        path: '/operacion/:deviceId',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['deviceId'] ?? '') ?? 0;
+          return DispositivoInfoPage(deviceId: id);
+        },
+      ),
+      GoRoute(
+        path: '/operacion/:deviceId/guardias',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['deviceId'] ?? '') ?? 0;
+          return GuardiaListaPage(deviceId: id);
+        },
+      ),
+      GoRoute(
+        path: '/operacion/:deviceId/trabajo',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['deviceId'] ?? '') ?? 0;
+          return GuardiaTrabajoPage(deviceId: id);
+        },
       ),
     ],
   );
