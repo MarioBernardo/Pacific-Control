@@ -18,6 +18,7 @@ from app.services.crud_utils import (
 
 class TurnoService:
     _required_fields = ("fecha", "hora_inicio", "hora_fin", "estado", "id_empleado", "id_puesto")
+    _allowed_fields = set(_required_fields) | {"tipo_turno", "tipo_asignacion"}
 
     def __init__(self, repository: TurnoRepository | None = None):
         self.repository = repository or TurnoRepository()
@@ -71,13 +72,15 @@ class TurnoService:
         return turno
 
     def _validate_data(self, payload: dict, require_all: bool) -> dict:
-        errors = validate_payload(payload, set(self._required_fields), self._required_fields, require_all)
+        errors = validate_payload(payload, self._allowed_fields, self._required_fields, require_all)
         data = {}
         validators = {
             "fecha": lambda: required_date(payload, "fecha", errors),
             "hora_inicio": lambda: required_time(payload, "hora_inicio", errors),
             "hora_fin": lambda: required_time(payload, "hora_fin", errors),
             "estado": lambda: required_string(payload, "estado", 20, errors),
+            "tipo_turno": lambda: required_string(payload, "tipo_turno", 20, errors),
+            "tipo_asignacion": lambda: required_string(payload, "tipo_asignacion", 20, errors),
             "id_empleado": lambda: required_integer(payload, "id_empleado", errors),
             "id_puesto": lambda: required_integer(payload, "id_puesto", errors),
         }

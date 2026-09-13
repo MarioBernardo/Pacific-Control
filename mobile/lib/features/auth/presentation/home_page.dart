@@ -56,10 +56,8 @@ class HomePage extends ConsumerWidget {
             const SizedBox(height: 28),
             _StatusCard(session: session),
             const SizedBox(height: 20),
-            Text('Próximamente', style: Theme.of(context).textTheme.titleLarge),
+            Text('Operación', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 10),
-            const _FutureModulesCard(),
-            const SizedBox(height: 18),
             FilledButton.icon(
               onPressed: () => context.push('/puestos'),
               icon: const Icon(Icons.location_on_outlined),
@@ -149,45 +147,6 @@ class _StatusCard extends StatelessWidget {
             style: const TextStyle(color: AppColors.lightBlueText),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FutureModulesCard extends StatelessWidget {
-  const _FutureModulesCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.orangeSurface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(
-                Icons.dashboard_outlined,
-                color: AppColors.darkBlue,
-              ),
-            ),
-            const SizedBox(width: 14),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Módulos operativos'),
-                  SizedBox(height: 4),
-                  Text('Esta sección se habilitará en próximas etapas.'),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

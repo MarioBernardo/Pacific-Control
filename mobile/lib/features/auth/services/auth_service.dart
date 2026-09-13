@@ -13,6 +13,7 @@ class AuthService {
         _storage = storage ?? const FlutterSecureStorage();
 
   static const _sessionKey = 'pacific_control.auth_session';
+  static const _storageTimeout = Duration(seconds: 5);
 
   final http.Client _client;
   final FlutterSecureStorage _storage;
@@ -60,7 +61,9 @@ class AuthService {
   }
 
   Future<AuthSession?> restoreSession() async {
-    final value = await _storage.read(key: _sessionKey);
+    final value = await _storage
+        .read(key: _sessionKey)
+        .timeout(_storageTimeout);
     if (value == null) {
       return null;
     }
@@ -72,7 +75,7 @@ class AuthService {
     return AuthSession.fromJson(decoded);
   }
 
-  Future<void> logout() => _storage.delete(key: _sessionKey);
+  Future<void> logout() => _storage.delete(key: _sessionKey).timeout(_storageTimeout);
 
   Map<String, dynamic>? _decodeObject(String value) {
     try {

@@ -10,7 +10,7 @@ turno_service = TurnoService()
 
 
 def _serialize_turno(turno: Turno) -> dict:
-    return {"id_turno": turno.id_turno, "fecha": turno.fecha.isoformat(), "hora_inicio": turno.hora_inicio.isoformat(), "hora_fin": turno.hora_fin.isoformat(), "estado": turno.estado, "id_empleado": turno.id_empleado, "id_puesto": turno.id_puesto}
+    return {"id_turno": turno.id_turno, "fecha": turno.fecha.isoformat(), "hora_inicio": turno.hora_inicio.isoformat(), "hora_fin": turno.hora_fin.isoformat(), "estado": turno.estado, "tipo_turno": turno.tipo_turno, "tipo_asignacion": turno.tipo_asignacion, "id_empleado": turno.id_empleado, "id_puesto": turno.id_puesto}
 
 
 def _payload():

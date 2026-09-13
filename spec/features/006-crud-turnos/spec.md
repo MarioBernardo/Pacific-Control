@@ -24,9 +24,18 @@ Este feature implementa el módulo encargado de administrar la información de l
 ## Modelo y relaciones
 
 El modelo contiene `id_turno`, `fecha`, `hora_inicio`, `hora_fin`, `estado`,
-`id_empleado` e `id_puesto`. `id_empleado` referencia a un Empleado y
+`tipo_turno`, `tipo_asignacion`, `id_empleado` e `id_puesto`. `id_empleado` referencia a un Empleado y
 `id_puesto` referencia a un Puesto; ambos son obligatorios. Asistencias y
 Novedades también pueden referenciar un turno.
+
+`tipo_turno` identifica `24 HORAS`, `12 HORAS` o `MIXTO`. `tipo_asignacion`
+identifica `FIJO` o `SACA_FRANCO`; no es un cargo laboral del empleado.
+
+El seed operativo idempotente `seed_operational_demo()` usa la distribución
+oficial: Baviera y Century Plaza I con dos fijos y dos saca francos; Grand
+Victoria con dos fijos y un saca franco; y Vertice con Delgado Tituaña como
+único fijo y Bernardo/Betancourth como saca francos. El seed también crea un
+dispositivo por puesto y ejemplos mínimos de asistencia y novedad.
 
 Las fechas y horas se transportan como texto ISO 8601: `YYYY-MM-DD` para la
 fecha y `HH:MM:SS` para las horas.

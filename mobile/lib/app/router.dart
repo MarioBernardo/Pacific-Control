@@ -38,17 +38,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, state) {
-          return ref.read(authControllerProvider).isRestoring
-              ? const AuthLoadingPage()
-              : const LoginPage();
+          return Consumer(
+            builder: (context, ref, child) {
+              return ref.watch(authControllerProvider).isRestoring
+                  ? const AuthLoadingPage()
+                  : const LoginPage();
+            },
+          );
         },
       ),
       GoRoute(
         path: '/home',
         builder: (context, state) {
-          return ref.read(authControllerProvider).isRestoring
-              ? const AuthLoadingPage()
-              : const HomePage();
+          return Consumer(
+            builder: (context, ref, child) {
+              return ref.watch(authControllerProvider).isRestoring
+                  ? const AuthLoadingPage()
+                  : const HomePage();
+            },
+          );
         },
       ),
       GoRoute(

@@ -12,6 +12,8 @@ class Turno(db.Model):
     hora_inicio = db.Column(Time, nullable=False)
     hora_fin = db.Column(Time, nullable=False)
     estado = db.Column(String(20), nullable=False)
+    tipo_turno = db.Column(String(20), nullable=False, default="24 HORAS")
+    tipo_asignacion = db.Column(String(20), nullable=False, default="FIJO")
     id_empleado = db.Column(Integer, ForeignKey("empleados.id_empleado"), nullable=False)
     id_puesto = db.Column(Integer, ForeignKey("puestos.id_puesto"), nullable=False)
 

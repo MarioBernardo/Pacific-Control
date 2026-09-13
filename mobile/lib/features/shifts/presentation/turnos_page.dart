@@ -169,7 +169,7 @@ class _TurnoTile extends StatelessWidget {
         ),
         title: Text('${turno.fecha} | ${turno.horaInicio} - ${turno.horaFin}'),
         subtitle: Text(
-          'Empleado: ${turno.idEmpleado}\nPuesto: ${turno.idPuesto} | Estado: ${turno.estado}',
+          'Empleado: ${turno.idEmpleado}\nPuesto: ${turno.idPuesto} | ${turno.tipoTurno}\nAsignación: ${turno.tipoAsignacion} | Estado: ${turno.estado}',
         ),
         isThreeLine: true,
         trailing: canManage
@@ -377,6 +377,8 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
         horaInicio: _startController.text.trim(),
         horaFin: _endController.text.trim(),
         estado: _statusController.text.trim(),
+        tipoTurno: '24 HORAS',
+        tipoAsignacion: 'FIJO',
         idEmpleado: _employeeId!,
         idPuesto: _puestoId!,
       ),

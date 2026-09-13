@@ -9,8 +9,9 @@ import 'services/auth_session.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
-final authControllerProvider =
-    NotifierProvider<AuthController, AuthState>(AuthController.new);
+final authControllerProvider = NotifierProvider<AuthController, AuthState>(
+  AuthController.new,
+);
 
 final authenticatedApiClientProvider = Provider<AuthenticatedApiClient>((ref) {
   final client = http.Client();
@@ -30,10 +31,11 @@ class AuthState {
 
   const AuthState.restoring() : this._(status: AuthStatus.restoring);
 
-  const AuthState.unauthenticated() : this._(status: AuthStatus.unauthenticated);
+  const AuthState.unauthenticated()
+    : this._(status: AuthStatus.unauthenticated);
 
   const AuthState.authenticated(AuthSession session)
-      : this._(status: AuthStatus.authenticated, session: session);
+    : this._(status: AuthStatus.authenticated, session: session);
 
   final AuthStatus status;
   final AuthSession? session;
@@ -62,10 +64,9 @@ class AuthController extends Notifier<AuthState> {
   }
 
   Future<void> login({required String email, required String password}) async {
-    final session = await ref.read(authServiceProvider).login(
-          email: email,
-          password: password,
-        );
+    final session = await ref
+        .read(authServiceProvider)
+        .login(email: email, password: password);
     state = AuthState.authenticated(session);
   }
 
