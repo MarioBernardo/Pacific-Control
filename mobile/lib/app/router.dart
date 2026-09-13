@@ -6,6 +6,7 @@ import '../features/auth/auth_provider.dart';
 import '../features/auth/presentation/auth_loading_page.dart';
 import '../features/auth/presentation/home_page.dart';
 import '../features/auth/presentation/login_page.dart';
+import '../features/positions/presentation/puestos_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = _AuthRouterRefreshNotifier(ref);
@@ -45,6 +46,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ? const AuthLoadingPage()
               : const HomePage();
         },
+      ),
+      GoRoute(
+        path: '/puestos',
+        builder: (context, state) => const PuestosPage(),
       ),
     ],
   );

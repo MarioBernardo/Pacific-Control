@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../theme/app_colors.dart';
 import '../../../widgets/brand_logo.dart';
@@ -59,6 +60,12 @@ class HomePage extends ConsumerWidget {
             const SizedBox(height: 10),
             const _FutureModulesCard(),
             const SizedBox(height: 18),
+            FilledButton.icon(
+              onPressed: () => context.push('/puestos'),
+              icon: const Icon(Icons.location_on_outlined),
+              label: const Text('Ver puestos'),
+            ),
+            const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.of(context).push(

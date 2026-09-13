@@ -29,7 +29,20 @@ class CacheService:
         return items
 
     def invalidate(self, resource: str, item_id: int) -> None:
-        cache.delete(self._item_key(resource, item_id), self._list_key(resource))
+        resources = {resource}
+        if resource.endswith("s"):
+            resources.add(resource[:-1])
+        else:
+            resources.add(f"{resource}s")
+        keys = []
+        for current_resource in resources:
+            keys.extend(
+                (
+                    self._item_key(current_resource, item_id),
+                    self._list_key(current_resource),
+                )
+            )
+        cache.delete(*keys)
 
     @staticmethod
     def _item_key(resource: str, item_id: int) -> str:
