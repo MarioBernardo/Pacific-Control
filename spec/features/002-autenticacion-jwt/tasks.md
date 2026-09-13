@@ -22,7 +22,10 @@
 ## Pendiente
 
 - [ ] Ejecutar pruebas manuales con Postman.
-- [ ] Definir una matriz de permisos por cargo basada en roles reales.
+- [x] Definir una matriz explícita para ADMINISTRADOR, SUPERVISOR y GUARDIA.
+- [x] Centralizar la autorización y rechazar cargos desconocidos sin privilegios.
+- [x] Crear seed idempotente de usuarios activos e inactivos con contraseñas hasheadas.
+- [x] Probar login, estado activo y permisos por rol.
 - [ ] Implementar refresh, revocacion o rotacion de tokens si el alcance futuro lo requiere.
 
 ## Estado

@@ -38,7 +38,13 @@ class AuthSecurityTestCase(unittest.TestCase):
         db.session.commit()
         self.client = self.app.test_client()
 
-    def _employee(self, *, correo="activo@pacific.test", estado=True):
+    def _employee(
+        self,
+        *,
+        correo="activo@pacific.test",
+        estado=True,
+        cargo="ADMINISTRADOR",
+    ):
         empleado = Empleado(
             cedula="1234567890" if estado else "0987654321",
             nombres="Usuario",
@@ -46,7 +52,7 @@ class AuthSecurityTestCase(unittest.TestCase):
             correo=correo,
             password_hash=generate_password_hash("clave-segura"),
             telefono="0999999999",
-            cargo="Sin matriz definida",
+            cargo=cargo,
             estado=estado,
         )
         db.session.add(empleado)

@@ -28,9 +28,16 @@ Este feature implementa un mecanismo de autenticación utilizando JSON Web Token
   que permanezca activo en la base de datos.
 - Token ausente, invalido o expirado responde JSON con HTTP 401. Un empleado
   autenticado pero inactivo recibe HTTP 403 sin cerrar su sesion.
-- No existe aun una matriz de permisos por cargo. La infraestructura reusable
-  queda centralizada para usarla cuando existan roles y permisos definidos;
-  no se inventan cargos ni se restringen acciones por valores no documentados.
+- El cargo se usa como rol únicamente cuando coincide, después de normalizarlo,
+  con ADMINISTRADOR, SUPERVISOR o GUARDIA. Un cargo vacío, legacy o desconocido
+  no obtiene privilegios.
+- ADMINISTRADOR puede administrar todos los recursos. SUPERVISOR puede consultar
+  empleados y gestionar la operación, pero no modificar empleados. GUARDIA puede
+  consultar la información operativa y crear asistencias o novedades, pero no
+  administrar empleados ni la configuración.
+- La autorización se centraliza en `cargo_required`, que primero exige JWT
+  válido y empleado activo. El rol se obtiene del empleado actual en la base de
+  datos, no de un valor no verificado del token.
 
 - Las contraseñas deberán almacenarse cifradas.
 - No se permitirá el acceso mediante credenciales inválidas.
@@ -40,3 +47,25 @@ Este feature implementa un mecanismo de autenticación utilizando JSON Web Token
 ## Resultado esperado
 
 El backend contará con un mecanismo de autenticación seguro que permitirá controlar el acceso a los diferentes módulos del sistema.
+
+## Usuarios de prueba
+
+El seed idempotente `seed_demo_users()` crea o actualiza estas cuentas:
+
+| Correo | Rol | Estado | Contraseña |
+|---|---|---|---|
+| admin@pacific.test | ADMINISTRADOR | Activo | Admin123! |
+| supervisor@pacific.test | SUPERVISOR | Activo | Supervisor123! |
+| guardia@pacific.test | GUARDIA | Activo | Guardia123! |
+| inactivo@pacific.test | GUARDIA | Inactivo | Inactivo123! |
+
+Las contraseñas se almacenan únicamente como hash.
+
+## Respuestas HTTP verificadas
+
+- `400`: JSON ausente o datos inválidos.
+- `401`: credenciales incorrectas, token ausente, inválido o expirado.
+- `403`: empleado inactivo o rol sin permiso.
+- `404`: recurso inexistente.
+- `409`: conflicto de datos o duplicado.
+- `500`: error interno controlado por la aplicación cuando aplica.

@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app.auth.authorization import active_employee_required
+from app.auth.authorization import cargo_required
 from app.models.puesto import Puesto
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.puesto_service import PuestoService
@@ -18,7 +18,7 @@ def _payload():
 
 
 @puestos_bp.post("")
-@active_employee_required
+@cargo_required("ADMINISTRADOR", "SUPERVISOR")
 def create_puesto():
     payload = _payload()
     if payload is None:
@@ -33,13 +33,13 @@ def create_puesto():
 
 
 @puestos_bp.get("")
-@active_employee_required
+@cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def list_puestos():
     return jsonify({"data": [_serialize_puesto(puesto) for puesto in puesto_service.get_all()]}), 200
 
 
 @puestos_bp.get("/<int:puesto_id>")
-@active_employee_required
+@cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def get_puesto(puesto_id: int):
     puesto = puesto_service.get_by_id(puesto_id)
     if puesto is None:
@@ -48,7 +48,7 @@ def get_puesto(puesto_id: int):
 
 
 @puestos_bp.put("/<int:puesto_id>")
-@active_employee_required
+@cargo_required("ADMINISTRADOR", "SUPERVISOR")
 def update_puesto(puesto_id: int):
     payload = _payload()
     if payload is None:
@@ -65,7 +65,7 @@ def update_puesto(puesto_id: int):
 
 
 @puestos_bp.patch("/<int:puesto_id>/estado")
-@active_employee_required
+@cargo_required("ADMINISTRADOR", "SUPERVISOR")
 def change_puesto_status(puesto_id: int):
     payload = _payload()
     if payload is None:

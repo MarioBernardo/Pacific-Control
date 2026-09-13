@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from app.auth.authorization import active_employee_required
+from app.auth.authorization import cargo_required
 from app.models.empleado import Empleado
 from app.services.empleado_service import (
     EmpleadoConflictError,
@@ -30,7 +30,7 @@ def _json_payload() -> dict | None:
 
 
 @empleados_bp.post("")
-@active_employee_required
+@cargo_required("ADMINISTRADOR")
 def create_empleado():
     payload = _json_payload()
     if payload is None:
@@ -47,14 +47,14 @@ def create_empleado():
 
 
 @empleados_bp.get("")
-@active_employee_required
+@cargo_required("ADMINISTRADOR", "SUPERVISOR")
 def list_empleados():
     empleados = empleado_service.get_all()
     return jsonify({"data": [_serialize_empleado(empleado) for empleado in empleados]}), 200
 
 
 @empleados_bp.get("/<int:empleado_id>")
-@active_employee_required
+@cargo_required("ADMINISTRADOR", "SUPERVISOR")
 def get_empleado(empleado_id: int):
     empleado = empleado_service.get_by_id(empleado_id)
     if empleado is None:
@@ -64,7 +64,7 @@ def get_empleado(empleado_id: int):
 
 
 @empleados_bp.put("/<int:empleado_id>")
-@active_employee_required
+@cargo_required("ADMINISTRADOR")
 def update_empleado(empleado_id: int):
     payload = _json_payload()
     if payload is None:
@@ -84,7 +84,7 @@ def update_empleado(empleado_id: int):
 
 
 @empleados_bp.patch("/<int:empleado_id>/estado")
-@active_employee_required
+@cargo_required("ADMINISTRADOR")
 def change_empleado_status(empleado_id: int):
     payload = _json_payload()
     if payload is None:
