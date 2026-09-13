@@ -24,6 +24,7 @@ class TurnoService:
 
     def create(self, payload: dict) -> Turno:
         data = self._validate_data(payload, True)
+        self._validate_references(data)
         turno = save_entity(self.repository, Turno(**data), "No fue posible guardar el turno.")
         cache_service.invalidate("turno", turno.id_turno)
         return turno
@@ -57,6 +58,8 @@ class TurnoService:
         turno = self.repository.get_by_id(turno_id)
         if turno is None:
             return None
+        if not isinstance(payload, dict):
+            raise CrudValidationError({"body": "El cuerpo debe ser un objeto JSON."})
         if set(payload) != {"estado"}:
             raise CrudValidationError({"estado": "Debe enviar únicamente el estado."})
         errors = {}

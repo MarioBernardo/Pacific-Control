@@ -8,6 +8,7 @@ import '../features/auth/presentation/home_page.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/devices/presentation/dispositivos_page.dart';
 import '../features/positions/presentation/puestos_page.dart';
+import '../features/shifts/presentation/turnos_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = _AuthRouterRefreshNotifier(ref);
@@ -55,6 +56,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/dispositivos',
         builder: (context, state) => const DispositivosPage(),
+      ),
+      GoRoute(
+        path: '/turnos',
+        builder: (context, state) => const TurnosPage(),
       ),
     ],
   );

@@ -72,6 +72,12 @@ class HomePage extends ConsumerWidget {
               label: const Text('Ver dispositivos'),
             ),
             const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => context.push('/turnos'),
+              icon: const Icon(Icons.schedule),
+              label: const Text('Ver turnos'),
+            ),
+            const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.of(context).push(
