@@ -66,6 +66,12 @@ class HomePage extends ConsumerWidget {
               label: const Text('Ver puestos'),
             ),
             const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () => context.push('/dispositivos'),
+              icon: const Icon(Icons.phone_android_outlined),
+              label: const Text('Ver dispositivos'),
+            ),
+            const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.of(context).push(

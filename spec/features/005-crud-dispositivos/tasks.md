@@ -1,15 +1,18 @@
 # Tareas
 
-- [ ] Crear el modelo de Dispositivo.
-- [ ] Crear el repositorio.
-- [ ] Crear el servicio.
-- [ ] Crear las rutas CRUD.
-- [ ] Implementar la asociación con puestos.
-- [ ] Implementar validaciones.
-- [ ] Implementar respuestas JSON.
-- [ ] Realizar pruebas con Postman.
-- [ ] Documentar el módulo.
+- [x] Crear el modelo de Dispositivo.
+- [x] Crear el repositorio.
+- [x] Crear el servicio.
+- [x] Crear las rutas CRUD.
+- [x] Implementar la asociación con puestos.
+- [x] Implementar validaciones.
+- [x] Implementar respuestas JSON.
+- [x] Crear feature Flutter con listado, creación, edición y cambio de estado.
+- [x] Integrar selección de Puesto mediante `id_puesto`.
+- [x] Agregar pruebas backend y Flutter del módulo.
+- [ ] Realizar pruebas manuales con Postman.
+- [x] Documentar el módulo.
 
 ## Estado
 
-🚧 En desarrollo
+✅ Implementado y probado automáticamente; pendiente únicamente la validación manual con Postman.

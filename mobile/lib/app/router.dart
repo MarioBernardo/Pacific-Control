@@ -6,6 +6,7 @@ import '../features/auth/auth_provider.dart';
 import '../features/auth/presentation/auth_loading_page.dart';
 import '../features/auth/presentation/home_page.dart';
 import '../features/auth/presentation/login_page.dart';
+import '../features/devices/presentation/dispositivos_page.dart';
 import '../features/positions/presentation/puestos_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -50,6 +51,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/puestos',
         builder: (context, state) => const PuestosPage(),
+      ),
+      GoRoute(
+        path: '/dispositivos',
+        builder: (context, state) => const DispositivosPage(),
       ),
     ],
   );
