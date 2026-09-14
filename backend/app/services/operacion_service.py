@@ -3,9 +3,15 @@
 Manages the temporary state of a guard identified on a device.
 Uses Redis for session storage (TTL-based, no DB table needed).
 Falls back gracefully when Redis is not available.
+
+Security model:
+- No JWT is required for operative endpoints.
+- identify_guard() validates that the employee has an active turno
+  at the device's puesto (FIJO or SACA_FRANCO) before accepting them.
+- The session data returned never contains JWT tokens or admin credentials.
+- Administrative endpoints remain independently protected by cargo_required.
 """
 
-import json
 import logging
 from typing import Any
 
@@ -32,7 +38,7 @@ class OperacionService:
     # ------------------------------------------------------------------
 
     def get_device_info(self, device_id: int) -> dict | None:
-        """Return device + puesto info or None if not found."""
+        """Return device + puesto info, or None if device not found."""
         device = db.session.get(Dispositivo, device_id)
         if device is None:
             return None
@@ -40,7 +46,7 @@ class OperacionService:
         return self._serialize_device(device, puesto)
 
     def get_device_by_codigo(self, codigo: str) -> dict | None:
-        """Find a device by its string code, return device + puesto info."""
+        """Find a device by its string code and return device + puesto info."""
         device = db.session.execute(
             db.select(Dispositivo).where(Dispositivo.codigo_dispositivo == codigo)
         ).scalar_one_or_none()
@@ -58,6 +64,8 @@ class OperacionService:
 
         Returns None if device does not exist.
         Returns empty list if no active turnos found.
+        Deduplicates by empleado (same guard can have multiple turnos;
+        the first active one encountered takes precedence).
         """
         device = db.session.get(Dispositivo, device_id)
         if device is None:
@@ -86,13 +94,17 @@ class OperacionService:
     # ------------------------------------------------------------------
 
     def get_session(self, device_id: int) -> dict:
-        """Return current operative session for a device."""
+        """Return current operative session for a device.
+
+        If Redis has a stored session it is returned directly.
+        Otherwise builds a base session with estado='sin_identificar'.
+        Returns {'estado': 'dispositivo_no_encontrado'} when device is missing.
+        """
         key = _session_key(device_id)
         raw = cache.get_json(key)
         if raw is not None:
             return raw
 
-        # Build base session without guard
         device = db.session.get(Dispositivo, device_id)
         if device is None:
             return {"estado": "dispositivo_no_encontrado"}
@@ -106,7 +118,14 @@ class OperacionService:
     def identify_guard(self, device_id: int, empleado_id: int) -> dict | None:
         """Set the identified guard for a device session.
 
-        Returns the session dict or None if device/employee not found.
+        Validates:
+        1. Device exists.
+        2. Employee exists and is active.
+        3. Employee has an active turno at the device's puesto
+           (either FIJO or SACA_FRANCO — both are valid assignments).
+
+        Returns the session dict on success, None otherwise.
+        This method does NOT issue any credentials or tokens.
         """
         device = db.session.get(Dispositivo, device_id)
         if device is None:
@@ -118,7 +137,7 @@ class OperacionService:
 
         puesto = db.session.get(Puesto, device.id_puesto)
 
-        # Find the active turno for this empleado in this puesto
+        # Employee must have an active turno at this puesto
         turno = db.session.execute(
             db.select(Turno).where(
                 Turno.id_empleado == empleado_id,
@@ -127,9 +146,9 @@ class OperacionService:
             )
         ).scalar_one_or_none()
 
-        tipo_asignacion = turno.tipo_asignacion if turno else "FIJO"
-        tipo_turno = turno.tipo_turno if turno else None
-        turno_id = turno.id_turno if turno else None
+        if turno is None:
+            # Employee not assigned to this puesto — deny identification
+            return None
 
         session_data: dict[str, Any] = {
             "dispositivo": self._serialize_device(device, puesto),
@@ -139,9 +158,9 @@ class OperacionService:
                 "apellidos": empleado.apellidos,
                 "nombre_completo": f"{empleado.apellidos} {empleado.nombres}",
                 "cargo": empleado.cargo,
-                "tipo_asignacion": tipo_asignacion,
-                "tipo_turno": tipo_turno,
-                "id_turno": turno_id,
+                "tipo_asignacion": turno.tipo_asignacion,
+                "tipo_turno": turno.tipo_turno,
+                "id_turno": turno.id_turno,
             },
             "estado": "identificado",
         }

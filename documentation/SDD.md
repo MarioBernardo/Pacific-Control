@@ -93,15 +93,19 @@ go_router (navegación declarativa)
 | POST /novedades | ✅ | ✅ | ✅ |
 | GET /novedades | ✅ | ✅ | ✅ |
 | PUT /novedades/:id | ✅ | ✅ | ❌ |
-| GET/POST/DELETE /operacion/* | ✅ | ✅ | ✅ |
+| GET/POST/DELETE /operacion/* | ✅ (sin JWT) | ✅ (sin JWT) | ✅ (sin JWT) |
 
-### Sesión operativa (no administrativa)
+### Sesión operativa — capa separada del JWT administrativo
 
-Los endpoints `/operacion/*` solo requieren un token JWT válido de cualquier rol. La sesión operativa:
-- **No otorga** permisos administrativos.
-- **No utiliza** una cuenta con cargo privilegiado para simular la operación.
-- **No almacena** credenciales — solo el estado temporal del guardia identificado.
-- Se almacena en Redis con TTL de 12 horas.
+Los endpoints `/operacion/*` son **intencionalmente públicos** (no requieren JWT). Representan la capa física del dispositivo instalado en el puesto/edificio. La autenticación aquí es implícita a través del código del dispositivo asociado al puesto, no mediante credenciales administrativas.
+
+**Garantías de seguridad del flujo operativo:**
+- **No otorga** permisos administrativos bajo ninguna circunstancia.
+- **No expone** tokens JWT ni credenciales de ningún tipo.
+- **No permite** crear, modificar ni eliminar empleados, puestos, dispositivos, turnos u otros recursos administrativos.
+- **Valida** que el empleado identificado esté activo y tenga un turno activo (FIJO o SACA_FRANCO) en el puesto del dispositivo. Un empleado no asignado recibe 404.
+- El estado de la sesión se almacena en Redis con TTL de 12 horas. Sin Redis, opera sin estado (fallback silencioso).
+- La identificación operativa **no sustituye** el login administrativo — son mecanismos completamente independientes.
 
 ### Mobile
 
@@ -269,21 +273,21 @@ El backend es compatible con PgBouncer como capa de connection pooling entre la 
 
 ### Backend (pytest)
 
-Se ejecutan 67 tests en 9 archivos:
+Se ejecutan 76 tests en 9 archivos:
 
-| Archivo | Tests |
-|---------|-------|
-| test_auth_security.py | Login, JWT inválido/expirado, empleado inactivo |
-| test_role_security.py | Matriz de permisos, seed idempotente, roles |
-| test_puesto_crud.py | CRUD completo de puestos |
-| test_dispositivo_crud.py | CRUD completo de dispositivos |
-| test_turno_crud.py | CRUD completo de turnos + validación de estado |
-| test_asistencia_crud.py | CRUD completo de asistencias |
-| test_novedad_crud.py | CRUD completo de novedades |
-| test_operational_seed.py | Seed idempotente con datos oficiales |
-| test_operacion_flow.py | Flujo operativo: sesión, guardias, identificación, validación tipo_turno/tipo_asignacion, usuario guardia.demo |
+| Archivo | Tests | Observación |
+|---------|-------|-------------|
+| test_auth_security.py | Login, JWT inválido/expirado, empleado inactivo | — |
+| test_role_security.py | Matriz de permisos, seed idempotente, roles | — |
+| test_puesto_crud.py | CRUD completo de puestos | — |
+| test_dispositivo_crud.py | CRUD completo de dispositivos | — |
+| test_turno_crud.py | CRUD completo de turnos + validación de estado | — |
+| test_asistencia_crud.py | CRUD completo de asistencias | — |
+| test_novedad_crud.py | CRUD completo de novedades | — |
+| test_operational_seed.py | Seed idempotente con datos oficiales | — |
+| test_operacion_flow.py | Flujo operativo sin JWT: sesión, guardias, identificación, validación tipo_turno/tipo_asignacion, employee not assigned, inactive, SACA_FRANCO, aislamiento de admin, seed demo | 3 clases de test |
 
-**Resultado:** `67 passed, 8 warnings` (los warnings son SAWarning de SQLAlchemy en el contexto de prueba con SQLite — no afectan producción con PostgreSQL).
+**Resultado:** `76 passed, 6 warnings` — los warnings son SAWarning de SQLAlchemy bajo SQLite en tests (no afectan producción con PostgreSQL).
 
 ### Mobile (flutter test)
 

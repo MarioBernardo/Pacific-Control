@@ -1,14 +1,19 @@
 """Integration tests for the operative guard identification flow.
 
-Covers:
-- GET /operacion/dispositivos/<id>
-- GET /operacion/dispositivos/codigo/<codigo>
-- GET /operacion/dispositivos/<id>/guardias
-- GET /operacion/dispositivos/<id>/sesion
-- POST /operacion/dispositivos/<id>/sesion/identificar
-- DELETE /operacion/dispositivos/<id>/sesion
-- Seed idempotency for guardia.demo user
-- Turnos: tipo_turno and tipo_asignacion validation
+Security model tested here:
+- /operacion endpoints do NOT require JWT — they represent the physical
+  device layer, authenticated implicitly by the device code / puesto.
+- A guard identified in the operative session does NOT gain admin privileges.
+- Administrative endpoints (/puestos, /empleados, etc.) remain protected
+  by JWT + cargo_required regardless of any operative session.
+- An inactive employee cannot identify themselves.
+- An employee not assigned to the device's puesto cannot identify themselves.
+- A nonexistent device always returns 404.
+
+Also covers:
+- Turno tipo_turno / tipo_asignacion validation (valid + invalid values).
+- GET /turnos/meta/opciones returns correct enum sets.
+- Seed demo user idempotency (guardia.demo@pacific.test).
 """
 
 import unittest
@@ -34,19 +39,84 @@ _TEST_CONFIG = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Helpers shared across test cases
+# ---------------------------------------------------------------------------
+
+def _make_puesto(nombre="ED. BAVIERA", direccion="Edificio Baviera"):
+    p = Puesto(nombre_puesto=nombre, direccion=direccion, estado="activo")
+    db.session.add(p)
+    db.session.flush()
+    return p
+
+
+def _make_device(codigo, puesto_id):
+    d = Dispositivo(
+        codigo_dispositivo=codigo,
+        modelo="Terminal operativo",
+        estado="activo",
+        id_puesto=puesto_id,
+    )
+    db.session.add(d)
+    db.session.flush()
+    return d
+
+
+def _make_empleado(cedula, nombres, apellidos, correo, cargo="GUARDIA", estado=True):
+    e = Empleado(
+        cedula=cedula,
+        nombres=nombres,
+        apellidos=apellidos,
+        correo=correo,
+        password_hash=generate_password_hash("Test123!"),
+        telefono="0999999999",
+        cargo=cargo,
+        estado=estado,
+    )
+    db.session.add(e)
+    db.session.flush()
+    return e
+
+
+def _make_turno(empleado_id, puesto_id, tipo_asignacion="FIJO", tipo_turno="24 HORAS"):
+    t = Turno(
+        fecha=date(2026, 9, 13),
+        hora_inicio=time(0, 0),
+        hora_fin=time(0, 0),
+        estado="activo",
+        tipo_turno=tipo_turno,
+        tipo_asignacion=tipo_asignacion,
+        id_empleado=empleado_id,
+        id_puesto=puesto_id,
+    )
+    db.session.add(t)
+    db.session.flush()
+    return t
+
+
+def _jwt(empleado_id):
+    return {"Authorization": f"Bearer {create_access_token(identity=str(empleado_id))}"}
+
+
+# ---------------------------------------------------------------------------
+# Operative flow — no JWT required
+# ---------------------------------------------------------------------------
+
 class OperacionFlowTestCase(unittest.TestCase):
+    """Tests that the operative flow works WITHOUT any JWT token."""
+
     @classmethod
     def setUpClass(cls):
         cls.app = create_app(_TEST_CONFIG)
-        cls.context = cls.app.app_context()
-        cls.context.push()
+        cls.ctx = cls.app.app_context()
+        cls.ctx.push()
         db.create_all()
 
     @classmethod
     def tearDownClass(cls):
         db.session.remove()
         db.drop_all()
-        cls.context.pop()
+        cls.ctx.pop()
 
     def setUp(self):
         db.session.query(Turno).delete()
@@ -56,87 +126,56 @@ class OperacionFlowTestCase(unittest.TestCase):
         db.session.commit()
         self.client = self.app.test_client()
 
-        # Create base data
-        self.puesto = Puesto(
-            nombre_puesto="ED. BAVIERA",
-            direccion="Edificio Baviera",
-            estado="activo",
+        self.puesto = _make_puesto()
+        self.device = _make_device("BAVIERA-01", self.puesto.id_puesto)
+        self.guard = _make_empleado("9000000001", "Diego", "Tipantuña", "guard.op@test.com")
+        self.turno = _make_turno(
+            self.guard.id_empleado, self.puesto.id_puesto,
+            tipo_asignacion="FIJO", tipo_turno="24 HORAS",
         )
-        db.session.add(self.puesto)
-        db.session.flush()
-
-        self.device = Dispositivo(
-            codigo_dispositivo="BAVIERA-01",
-            modelo="Terminal operativo",
-            estado="activo",
-            id_puesto=self.puesto.id_puesto,
-        )
-        db.session.add(self.device)
-        db.session.flush()
-
-        self.admin = Empleado(
-            cedula="9000000001",
-            nombres="Admin",
-            apellidos="Test",
-            correo="admin.op@test.com",
-            password_hash=generate_password_hash("Test123!"),
-            telefono="0999999001",
-            cargo="ADMINISTRADOR",
-            estado=True,
-        )
-        self.guard = Empleado(
-            cedula="9000000002",
-            nombres="Diego",
-            apellidos="Tipantuña",
-            correo="guard.op@test.com",
-            password_hash=generate_password_hash("Guardia123!"),
-            telefono="0999999002",
-            cargo="GUARDIA",
-            estado=True,
-        )
-        db.session.add_all([self.admin, self.guard])
-        db.session.flush()
-
-        self.turno = Turno(
-            fecha=date(2026, 9, 13),
-            hora_inicio=time(0, 0),
-            hora_fin=time(0, 0),
-            estado="activo",
-            tipo_turno="24 HORAS",
-            tipo_asignacion="FIJO",
-            id_empleado=self.guard.id_empleado,
-            id_puesto=self.puesto.id_puesto,
-        )
-        db.session.add(self.turno)
+        # A guard NOT assigned to this puesto
+        self.other_guard = _make_empleado("9000000003", "Otro", "Guardia", "other.guard@test.com")
         db.session.commit()
 
-    def _token(self, empleado):
-        return create_access_token(identity=str(empleado.id_empleado))
+    # ── Endpoints work WITHOUT JWT ──────────────────────────────────────
 
-    def _auth(self, empleado=None):
-        e = empleado or self.admin
-        return {"Authorization": f"Bearer {self._token(e)}"}
+    def test_get_device_by_id_requires_no_jwt(self):
+        resp = self.client.get(f"/operacion/dispositivos/{self.device.id_dispositivo}")
+        self.assertEqual(resp.status_code, 200)
 
-    # ── Authentication required ─────────────────────────────────────────
+    def test_get_device_by_codigo_requires_no_jwt(self):
+        resp = self.client.get("/operacion/dispositivos/codigo/BAVIERA-01")
+        self.assertEqual(resp.status_code, 200)
 
-    def test_operative_endpoints_require_token(self):
-        device_id = self.device.id_dispositivo
-        for path in (
-            f"/operacion/dispositivos/{device_id}",
-            f"/operacion/dispositivos/{device_id}/guardias",
-            f"/operacion/dispositivos/{device_id}/sesion",
-        ):
-            with self.subTest(path=path):
-                resp = self.client.get(path)
-                self.assertEqual(resp.status_code, 401)
+    def test_list_guards_requires_no_jwt(self):
+        resp = self.client.get(
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/guardias"
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_get_session_requires_no_jwt(self):
+        resp = self.client.get(
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion"
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_identify_guard_requires_no_jwt(self):
+        resp = self.client.post(
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
+            json={"id_empleado": self.guard.id_empleado},
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    def test_clear_session_requires_no_jwt(self):
+        resp = self.client.delete(
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion"
+        )
+        self.assertEqual(resp.status_code, 200)
 
     # ── Device info ─────────────────────────────────────────────────────
 
     def test_get_device_by_id_returns_puesto_info(self):
-        resp = self.client.get(
-            f"/operacion/dispositivos/{self.device.id_dispositivo}",
-            headers=self._auth(),
-        )
+        resp = self.client.get(f"/operacion/dispositivos/{self.device.id_dispositivo}")
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()["data"]
         self.assertEqual(data["codigo_dispositivo"], "BAVIERA-01")
@@ -144,34 +183,24 @@ class OperacionFlowTestCase(unittest.TestCase):
         self.assertEqual(data["puesto"]["nombre_puesto"], "ED. BAVIERA")
 
     def test_get_device_by_codigo(self):
-        resp = self.client.get(
-            "/operacion/dispositivos/codigo/BAVIERA-01",
-            headers=self._auth(),
-        )
+        resp = self.client.get("/operacion/dispositivos/codigo/BAVIERA-01")
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()["data"]
         self.assertEqual(data["id_dispositivo"], self.device.id_dispositivo)
 
     def test_nonexistent_device_returns_404(self):
-        resp = self.client.get(
-            "/operacion/dispositivos/99999",
-            headers=self._auth(),
-        )
+        resp = self.client.get("/operacion/dispositivos/99999")
         self.assertEqual(resp.status_code, 404)
 
     def test_nonexistent_device_by_codigo_returns_404(self):
-        resp = self.client.get(
-            "/operacion/dispositivos/codigo/NOPE-99",
-            headers=self._auth(),
-        )
+        resp = self.client.get("/operacion/dispositivos/codigo/NOPE-99")
         self.assertEqual(resp.status_code, 404)
 
     # ── Available guards ────────────────────────────────────────────────
 
     def test_list_guards_returns_active_guards_with_assignment(self):
         resp = self.client.get(
-            f"/operacion/dispositivos/{self.device.id_dispositivo}/guardias",
-            headers=self._auth(),
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/guardias"
         )
         self.assertEqual(resp.status_code, 200)
         guards = resp.get_json()["data"]
@@ -182,42 +211,49 @@ class OperacionFlowTestCase(unittest.TestCase):
         self.assertIn("nombre_completo", g)
 
     def test_list_guards_for_nonexistent_device_returns_404(self):
-        resp = self.client.get(
-            "/operacion/dispositivos/99999/guardias",
-            headers=self._auth(),
-        )
+        resp = self.client.get("/operacion/dispositivos/99999/guardias")
         self.assertEqual(resp.status_code, 404)
 
     def test_list_guards_excludes_inactive_employees(self):
-        # Deactivate guard
         self.guard.estado = False
         db.session.commit()
         resp = self.client.get(
-            f"/operacion/dispositivos/{self.device.id_dispositivo}/guardias",
-            headers=self._auth(),
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/guardias"
         )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.get_json()["data"]), 0)
-        # Restore
         self.guard.estado = True
         db.session.commit()
+
+    def test_list_guards_includes_saca_franco(self):
+        sf = _make_empleado("9000000004", "Mario", "Bernardo", "sf.op@test.com")
+        _make_turno(
+            sf.id_empleado, self.puesto.id_puesto,
+            tipo_asignacion="SACA_FRANCO",
+        )
+        db.session.commit()
+        resp = self.client.get(
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/guardias"
+        )
+        codes = {g["tipo_asignacion"] for g in resp.get_json()["data"]}
+        self.assertIn("FIJO", codes)
+        self.assertIn("SACA_FRANCO", codes)
 
     # ── Session ──────────────────────────────────────────────────────────
 
     def test_get_session_returns_sin_identificar_when_empty(self):
         resp = self.client.get(
-            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion",
-            headers=self._auth(),
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion"
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()["data"]
-        self.assertIn(data["estado"], ("sin_identificar",))
+        self.assertEqual(data["estado"], "sin_identificar")
+        self.assertIsNone(data["guardia_identificado"])
 
     def test_identify_guard_sets_session(self):
         resp = self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
             json={"id_empleado": self.guard.id_empleado},
-            headers=self._auth(),
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()["data"]
@@ -225,6 +261,7 @@ class OperacionFlowTestCase(unittest.TestCase):
         guardia = data["guardia_identificado"]
         self.assertEqual(guardia["id_empleado"], self.guard.id_empleado)
         self.assertEqual(guardia["tipo_asignacion"], "FIJO")
+        self.assertIn("id_turno", guardia)
 
     def test_identify_guard_invalid_payload_returns_400(self):
         for body in ({}, {"id_empleado": "not-an-int"}, {"id_empleado": -1}):
@@ -232,7 +269,6 @@ class OperacionFlowTestCase(unittest.TestCase):
                 resp = self.client.post(
                     f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
                     json=body,
-                    headers=self._auth(),
                 )
                 self.assertEqual(resp.status_code, 400)
 
@@ -240,81 +276,110 @@ class OperacionFlowTestCase(unittest.TestCase):
         resp = self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
             json={"id_empleado": 99999},
-            headers=self._auth(),
         )
         self.assertEqual(resp.status_code, 404)
 
     def test_identify_inactive_employee_returns_404(self):
+        """An inactive employee cannot identify themselves."""
         self.guard.estado = False
         db.session.commit()
         resp = self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
             json={"id_empleado": self.guard.id_empleado},
-            headers=self._auth(),
         )
         self.assertEqual(resp.status_code, 404)
         self.guard.estado = True
         db.session.commit()
 
+    def test_identify_employee_not_assigned_to_puesto_returns_404(self):
+        """An employee with no turno at this puesto cannot identify themselves."""
+        resp = self.client.post(
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
+            json={"id_empleado": self.other_guard.id_empleado},
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    def test_identify_saca_franco_succeeds(self):
+        """A SACA_FRANCO employee with a turno at the puesto can identify."""
+        sf = _make_empleado("9000000005", "Byron", "Betancourth", "sf2.op@test.com")
+        _make_turno(
+            sf.id_empleado, self.puesto.id_puesto,
+            tipo_asignacion="SACA_FRANCO",
+        )
+        db.session.commit()
+        resp = self.client.post(
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
+            json={"id_empleado": sf.id_empleado},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(
+            resp.get_json()["data"]["guardia_identificado"]["tipo_asignacion"],
+            "SACA_FRANCO",
+        )
+
     def test_clear_session_returns_200(self):
-        # Identify first
         self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
             json={"id_empleado": self.guard.id_empleado},
-            headers=self._auth(),
         )
-        # Now clear
         resp = self.client.delete(
-            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion",
-            headers=self._auth(),
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion"
         )
         self.assertEqual(resp.status_code, 200)
 
     def test_clear_nonexistent_device_returns_404(self):
-        resp = self.client.delete(
-            "/operacion/dispositivos/99999/sesion",
-            headers=self._auth(),
-        )
+        resp = self.client.delete("/operacion/dispositivos/99999/sesion")
         self.assertEqual(resp.status_code, 404)
 
-    # ── Guardia role can operate device ─────────────────────────────────
-
-    def test_guardia_can_access_operative_endpoints(self):
-        resp = self.client.get(
-            f"/operacion/dispositivos/{self.device.id_dispositivo}",
-            headers=self._auth(self.guard),
-        )
-        self.assertEqual(resp.status_code, 200)
+    # ── Session does NOT grant admin access ─────────────────────────────
 
     def test_operative_session_does_not_grant_admin_access(self):
-        # Identify guard in session
+        """Identifying a guard in the operative session grants NO admin privileges.
+
+        A guard-role employee with an active session must still be rejected
+        when attempting to access admin-only endpoints.
+        """
+        # Identify the guard in the operative session (no JWT used)
         self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
             json={"id_empleado": self.guard.id_empleado},
-            headers=self._auth(self.guard),
         )
-        # Guard still cannot create puestos
+        # The guard's JWT (if they had one) must still be blocked from admin endpoints
         resp = self.client.post(
             "/puestos",
             json={"nombre_puesto": "x", "direccion": "y", "estado": "activo"},
-            headers=self._auth(self.guard),
+            headers=_jwt(self.guard.id_empleado),
         )
         self.assertEqual(resp.status_code, 403)
 
+    def test_admin_endpoints_still_require_jwt_after_operative_session(self):
+        """Operative sessions provide no credential — admin routes require JWT."""
+        # No JWT — must be 401 even if operative session exists
+        self.client.post(
+            f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
+            json={"id_empleado": self.guard.id_empleado},
+        )
+        resp = self.client.get("/turnos")
+        self.assertEqual(resp.status_code, 401)
+
+
+# ---------------------------------------------------------------------------
+# Turno enum validation
+# ---------------------------------------------------------------------------
 
 class TurnoValidationTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = create_app(_TEST_CONFIG)
-        cls.context = cls.app.app_context()
-        cls.context.push()
+        cls.ctx = cls.app.app_context()
+        cls.ctx.push()
         db.create_all()
 
     @classmethod
     def tearDownClass(cls):
         db.session.remove()
         db.drop_all()
-        cls.context.pop()
+        cls.ctx.pop()
 
     def setUp(self):
         db.session.query(Turno).delete()
@@ -324,40 +389,17 @@ class TurnoValidationTestCase(unittest.TestCase):
         db.session.commit()
         self.client = self.app.test_client()
 
-        self.puesto = Puesto(
-            nombre_puesto="Puesto Validacion",
-            direccion="Dir",
-            estado="activo",
+        self.puesto = _make_puesto("Puesto Val", "Dir Val")
+        self.admin = _make_empleado(
+            "8000000001", "Adm", "Val", "adm.val@test.com", cargo="ADMINISTRADOR"
         )
-        db.session.add(self.puesto)
-        self.admin = Empleado(
-            cedula="8000000001",
-            nombres="Adm",
-            apellidos="Val",
-            correo="adm.val@test.com",
-            password_hash=generate_password_hash("Test123!"),
-            telefono="0988888001",
-            cargo="ADMINISTRADOR",
-            estado=True,
+        self.guard_emp = _make_empleado(
+            "8000000002", "Grd", "Val", "grd.val@test.com", cargo="GUARDIA"
         )
-        self.guard_emp = Empleado(
-            cedula="8000000002",
-            nombres="Grd",
-            apellidos="Val",
-            correo="grd.val@test.com",
-            password_hash=generate_password_hash("Test123!"),
-            telefono="0988888002",
-            cargo="GUARDIA",
-            estado=True,
-        )
-        db.session.add_all([self.admin, self.guard_emp])
         db.session.commit()
 
-    def _token(self, emp):
-        return create_access_token(identity=str(emp.id_empleado))
-
     def _auth(self):
-        return {"Authorization": f"Bearer {self._token(self.admin)}"}
+        return _jwt(self.admin.id_empleado)
 
     def _valid_payload(self, **overrides):
         payload = {
@@ -421,26 +463,31 @@ class TurnoValidationTestCase(unittest.TestCase):
         self.assertIn("tipo_turno", data)
         self.assertIn("tipo_asignacion", data)
         self.assertIn("24 HORAS", data["tipo_turno"])
+        self.assertIn("12 HORAS", data["tipo_turno"])
         self.assertIn("MIXTO", data["tipo_turno"])
         self.assertIn("FIJO", data["tipo_asignacion"])
         self.assertIn("SACA_FRANCO", data["tipo_asignacion"])
 
 
+# ---------------------------------------------------------------------------
+# Seed demo users
+# ---------------------------------------------------------------------------
+
 class GuardiaDemoUserTestCase(unittest.TestCase):
-    """Verify the guardia.demo@pacific.test user is created by seed."""
+    """Verify guardia.demo@pacific.test is created by seed and stays non-admin."""
 
     @classmethod
     def setUpClass(cls):
         cls.app = create_app(_TEST_CONFIG)
-        cls.context = cls.app.app_context()
-        cls.context.push()
+        cls.ctx = cls.app.app_context()
+        cls.ctx.push()
         db.create_all()
 
     @classmethod
     def tearDownClass(cls):
         db.session.remove()
         db.drop_all()
-        cls.context.pop()
+        cls.ctx.pop()
 
     def setUp(self):
         db.session.query(Empleado).delete()
@@ -465,25 +512,36 @@ class GuardiaDemoUserTestCase(unittest.TestCase):
         seed_demo_users()
         seed_demo_users()
 
-        from app.models.empleado import Empleado as E
-        count = db.session.query(E).filter_by(correo="guardia.demo@pacific.test").count()
+        count = (
+            db.session.query(Empleado)
+            .filter_by(correo="guardia.demo@pacific.test")
+            .count()
+        )
         self.assertEqual(count, 1)
 
     def test_guardia_demo_cannot_access_admin_endpoints(self):
         from app.auth.auth_seed import seed_demo_users
-        from flask_jwt_extended import create_access_token
 
         seed_demo_users()
         emp = db.session.execute(
             db.select(Empleado).where(Empleado.correo == "guardia.demo@pacific.test")
         ).scalar_one()
-        token = create_access_token(identity=str(emp.id_empleado))
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = _jwt(emp.id_empleado)
 
-        # Should be forbidden on admin routes
-        resp = self.client.post(
-            "/empleados",
-            json={},
-            headers=headers,
-        )
+        # Must be forbidden on admin-only route
+        resp = self.client.post("/empleados", json={}, headers=headers)
         self.assertEqual(resp.status_code, 403)
+
+    def test_guardia_demo_can_read_operative_info_without_jwt(self):
+        """Operative endpoints work for any device — no login required."""
+        from app.auth.auth_seed import seed_demo_users
+
+        seed_demo_users()
+        # Create a device to prove the operative endpoint is accessible
+        puesto = _make_puesto("ED. TEST", "Dir Test")
+        device = _make_device("TEST-01", puesto.id_puesto)
+        db.session.commit()
+
+        # No Authorization header needed
+        resp = self.client.get(f"/operacion/dispositivos/{device.id_dispositivo}")
+        self.assertEqual(resp.status_code, 200)
