@@ -97,3 +97,20 @@ La organización actual ofrece las siguientes ventajas:
 - **Evolución verificable:** el aislamiento entre modelos, migraciones y futuras capas de acceso a datos permite ampliar el backend de forma incremental.
 
 Estas ventajas describen la estructura existente y su capacidad de evolución. Las ventajas asociadas a Repository/Service serán efectivas cuando esas capas cuenten con una implementación concreta.
+# Separación de seguridad y datos
+
+`Flutter → HTTP REST → Flask → Auth/Operación → Services → Repositories → PostgreSQL`.
+Redis presta dos servicios distintos: cache-aside administrativo con degradación
+a PostgreSQL y sesión operativa estricta con TTL de 43.200 segundos. Celery
+clasifica la prioridad de novedades y prepara un resumen; un fallo al publicar
+se registra después de persistir la novedad y no revierte la transacción.
+
+El JWT administrativo no equivale a la sesión operativa. La credencial del
+dispositivo se almacena únicamente como hash. Las consultas operativas cargan
+empleados con `joinedload`, seleccionan múltiples turnos de forma determinista y
+exigen dispositivo, puesto, empleado, estado y fecha vigentes.
+
+El esquema mantiene 1FN, 2FN y 3FN mediante atributos atómicos, claves por
+entidad y relaciones por claves foráneas. En asistencia y novedad,
+`id_empleado` identifica al guardia que registró el hecho e `id_turno` la
+asignación relacionada; el servicio valida su coherencia.

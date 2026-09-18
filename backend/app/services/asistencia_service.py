@@ -7,6 +7,7 @@ from app.models.empleado import Empleado
 from app.models.turno import Turno
 from app.repositories.asistencia_repository import AsistenciaRepository
 from app.services.cache_service import cache_service
+from app.domain import ATTENDANCE_STATES, validate_catalog
 from app.services.crud_utils import (
     CrudValidationError,
     optional_string,
@@ -69,6 +70,7 @@ class AsistenciaService:
             raise CrudValidationError({"estado": "Debe enviar únicamente el estado."})
         errors = {}
         estado = required_string(payload, "estado", 20, errors)
+        validate_catalog(estado, ATTENDANCE_STATES, "estado", errors)
         raise_if_invalid(errors, {"estado": estado} if estado else {}, True)
         asistencia.estado = estado
         asistencia = save_entity(self.repository, asistencia, "No fue posible guardar la asistencia.")
@@ -93,14 +95,19 @@ class AsistenciaService:
             value = validator()
             if field in payload and (value is not None or field in {"foto", "observacion"}):
                 data[field] = value
+        validate_catalog(data.get("estado"), ATTENDANCE_STATES, "estado", errors)
         raise_if_invalid(errors, data, require_all)
         return data
 
     def _validate_references(self, data: dict) -> None:
-        checks = (("id_empleado", Empleado, "empleado"), ("id_turno", Turno, "turno"), ("id_dispositivo", Dispositivo, "dispositivo"))
         errors = {}
-        for field, model, label in checks:
-            if field in data and db.session.get(model, data[field]) is None:
-                errors[field] = f"El {label} indicado no existe."
+        empleado = db.session.get(Empleado, data["id_empleado"]) if "id_empleado" in data else None
+        turno = db.session.get(Turno, data["id_turno"]) if "id_turno" in data else None
+        dispositivo = db.session.get(Dispositivo, data["id_dispositivo"]) if "id_dispositivo" in data else None
+        if "id_empleado" in data and (empleado is None or not empleado.estado): errors["id_empleado"] = "El empleado indicado no existe o está inactivo."
+        if "id_turno" in data and turno is None: errors["id_turno"] = "El turno indicado no existe."
+        if "id_dispositivo" in data and (dispositivo is None or dispositivo.estado != "activo"): errors["id_dispositivo"] = "El dispositivo indicado no existe o está inactivo."
+        if empleado and turno and turno.id_empleado != empleado.id_empleado: errors["id_turno"] = "El turno no corresponde al empleado."
+        if turno and dispositivo and turno.id_puesto != dispositivo.id_puesto: errors["id_dispositivo"] = "El dispositivo no corresponde al puesto del turno."
         if errors:
             raise CrudValidationError(errors)

@@ -1,6 +1,7 @@
 from app.models.puesto import Puesto
 from app.repositories.puesto_repository import PuestoRepository
 from app.services.cache_service import cache_service
+from app.domain import ACTIVE_STATES, validate_catalog
 from app.services.crud_utils import (
     CrudValidationError,
     required_string,
@@ -50,7 +51,7 @@ class PuestoService:
         puesto = self.repository.get_by_id(puesto_id)
         if puesto is None:
             return None
-        if set(payload) != {"estado"}:
+        if not isinstance(payload, dict) or set(payload) != {"estado"}:
             raise CrudValidationError({"estado": "Debe enviar únicamente el estado."})
         puesto.estado = self._validate_status(payload)
         puesto = save_entity(self.repository, puesto, "No fue posible guardar el puesto.")
@@ -64,11 +65,13 @@ class PuestoService:
             value = required_string(payload, field, self._field_lengths[field], errors)
             if field in payload and value is not None:
                 data[field] = value
+        validate_catalog(data.get("estado"), ACTIVE_STATES, "estado", errors)
         raise_if_invalid(errors, data, require_all)
         return data
 
     def _validate_status(self, payload: dict) -> str:
         errors = {}
         value = required_string(payload, "estado", self._field_lengths["estado"], errors)
+        validate_catalog(value, ACTIVE_STATES, "estado", errors)
         raise_if_invalid(errors, {"estado": value} if value else {}, True)
         return value

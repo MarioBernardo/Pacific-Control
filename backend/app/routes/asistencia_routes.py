@@ -3,6 +3,7 @@ from app.auth.authorization import cargo_required
 from app.models.asistencia import Asistencia
 from app.services.asistencia_service import AsistenciaService
 from app.services.crud_utils import CrudConflictError, CrudValidationError
+from app.services.query_service import paginated
 
 
 asistencias_bp = Blueprint("asistencias", __name__, url_prefix="/asistencias")
@@ -35,7 +36,9 @@ def create_asistencia():
 @asistencias_bp.get("")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def list_asistencias():
-    return jsonify({"data": [_serialize_asistencia(item) for item in asistencia_service.get_all()]}), 200
+    try: items, meta = paginated(Asistencia, filters={"estado": Asistencia.estado, "id_empleado": Asistencia.id_empleado, "id_turno": Asistencia.id_turno}, sort_fields={"id_asistencia": Asistencia.id_asistencia, "fecha_hora": Asistencia.fecha_hora})
+    except CrudValidationError as error: return jsonify({"error": str(error), "detalles": error.errors}), 400
+    return jsonify({"data": [_serialize_asistencia(item) for item in items], "meta": meta}), 200
 
 
 @asistencias_bp.get("/<int:asistencia_id>")

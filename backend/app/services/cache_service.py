@@ -7,6 +7,7 @@ from app.extensions import cache
 
 
 class CacheService:
+    COLLECTIONS = {"empleado": "empleados", "puesto": "puestos", "dispositivo": "dispositivos", "turno": "turnos", "asistencia": "asistencias", "novedad": "novedades"}
     def get_by_id(self, resource: str, item_id: int, model_class, loader):
         key = self._item_key(resource, item_id)
         payload = cache.get_json(key)
@@ -29,11 +30,8 @@ class CacheService:
         return items
 
     def invalidate(self, resource: str, item_id: int) -> None:
-        resources = {resource}
-        if resource.endswith("s"):
-            resources.add(resource[:-1])
-        else:
-            resources.add(f"{resource}s")
+        singular = next((key for key, value in self.COLLECTIONS.items() if value == resource), resource)
+        resources = {singular, self.COLLECTIONS.get(singular, resource)}
         keys = []
         for current_resource in resources:
             keys.extend(
@@ -56,6 +54,8 @@ class CacheService:
     def _to_payload(model) -> dict:
         payload = {}
         for column in inspect(model.__class__).columns:
+            if column.name == "password_hash" or column.name.endswith("_hash"):
+                continue
             value = getattr(model, column.name)
             if isinstance(value, (date, datetime, time)):
                 value = value.isoformat()

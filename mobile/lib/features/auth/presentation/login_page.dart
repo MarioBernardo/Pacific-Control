@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../theme/app_colors.dart';
 import '../../../widgets/app_text_field.dart';
@@ -106,6 +107,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ],
                         const SizedBox(height: 24),
                         PrimaryButton(label: 'INICIAR SESION', onPressed: _submit, loading: _isLoading),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _isLoading ? null : () => context.go('/operacion'),
+                          icon: const Icon(Icons.security),
+                          label: const Text('MODO OPERATIVO'),
+                        ),
                         const SizedBox(height: 18),
                         const Row(
                           mainAxisAlignment: MainAxisAlignment.center,

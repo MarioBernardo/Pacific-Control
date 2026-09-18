@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../devices/services/dispositivo_service.dart';
 import '../models/device_session.dart';
 import '../services/operacion_service.dart';
 
@@ -9,20 +8,7 @@ import '../services/operacion_service.dart';
 // Fetches standard device list and enriches each one via operacion API.
 // ------------------------------------------------------------------
 
-final dispositivosInfoProvider =
-    FutureProvider.autoDispose<List<DispositivoInfo>>((ref) async {
-      final dispositivoService = ref.read(dispositivoServiceProvider);
-      final operService = ref.read(operacionServiceProvider);
-
-      // Get all devices from the standard endpoint
-      final rawList = await dispositivoService.getAll();
-
-      // Enrich each device with puesto info from the operative endpoint
-      final results = await Future.wait(
-        rawList.map((d) => operService.getDeviceById(d.idDispositivo!)),
-      );
-      return results;
-    });
+final dispositivosInfoProvider = FutureProvider.autoDispose<List<DispositivoInfo>>((ref) async => []);
 
 // ------------------------------------------------------------------
 // Session state for a specific device

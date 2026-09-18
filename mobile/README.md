@@ -21,3 +21,11 @@ Recibe un `http.Client` inyectable, no depende de widgets, Riverpod, go_router
 ni FlutterSecureStorage. Riverpod le aporta el token actual y un callback para
 invalidar la sesion ante 401; 403 conserva la sesion y devuelve un error de
 permisos a la capa solicitante.
+# Modo operativo
+
+Desde el login se puede entrar a **Modo operativo** sin JWT administrativo. El
+dispositivo se activa con código y token; después Flutter consume sólo rutas
+`/operacion`, conserva la credencial en memoria, identifica una asignación
+vigente y registra asistencia o novedad con la identidad derivada por el backend.
+La sesión administrativa guardada se descarta al restaurar si el `exp` del JWT
+ya venció. Android declara permiso `INTERNET` en el manifest principal.

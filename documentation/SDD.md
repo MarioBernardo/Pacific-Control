@@ -302,3 +302,11 @@ Se ejecutan 76 tests en 9 archivos:
 | Sin refresh token endpoint | El usuario debe re-loguearse cada 15 min | Documentado, no bloquea el flujo |
 | `BackendStatusPage` usa `Navigator.push` en lugar de go_router | Inconsistencia menor de navegación | No corregido (no bloquea) |
 | Token JWT no se invalida en servidor al hacer logout | El token permanece válido hasta expirar | Documentado, comportamiento típico de JWT stateless |
+# Adenda de cierre técnico
+
+Se implementaron paginación acotada, filtros, búsqueda y orden con lista blanca;
+índices compuestos para operación y consultas temporales; eager loading del
+empleado en asignaciones; cache-aside sin hashes de contraseña; invalidación
+explícita de `novedades`; credencial de dispositivo con hash; y sesión Redis de
+12 horas. La vigencia usa fecha y estado porque los horarios exactos de entrada
+y salida no están definidos; no se rechaza por una hora inventada.

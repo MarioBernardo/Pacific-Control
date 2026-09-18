@@ -5,63 +5,64 @@ import 'package:go_router/go_router.dart';
 import '../../../services/authenticated_api_client.dart';
 import '../../../theme/app_colors.dart';
 import '../models/device_session.dart';
-import '../providers/operacion_provider.dart';
+import '../services/operacion_service.dart';
 
 /// Lists available devices so the user can select one to operate.
-class DispositivoSeleccionPage extends ConsumerWidget {
+class DispositivoSeleccionPage extends ConsumerStatefulWidget {
   const DispositivoSeleccionPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final dispositivos = ref.watch(dispositivosInfoProvider);
+  ConsumerState<DispositivoSeleccionPage> createState() => _DispositivoSeleccionPageState();
+}
 
+class _DispositivoSeleccionPageState extends ConsumerState<DispositivoSeleccionPage> {
+  final _codigo = TextEditingController();
+  final _token = TextEditingController();
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() { _codigo.dispose(); _token.dispose(); super.dispose(); }
+
+  Future<void> _activate() async {
+    if (_codigo.text.trim().isEmpty || _token.text.isEmpty) {
+      setState(() => _error = 'Código y credencial son obligatorios.'); return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final device = await ref.read(operacionServiceProvider).activateDevice(_codigo.text.trim(), _token.text);
+      if (mounted) context.go('/operacion/${device.idDispositivo}');
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } finally { if (mounted) setState(() => _loading = false); }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Seleccionar dispositivo'),
-        actions: [
-          IconButton(
-            tooltip: 'Actualizar',
-            icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(dispositivosInfoProvider),
-          ),
-        ],
+        title: const Text('Activar dispositivo'),
       ),
-      body: dispositivos.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _ErrorView(
-          error: error,
-          onRetry: () => ref.invalidate(dispositivosInfoProvider),
-        ),
-        data: (items) {
-          final activos = items.where((d) => d.estado == 'activo').toList();
-          if (activos.isEmpty) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text('No hay dispositivos activos disponibles.'),
-              ),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: activos.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              final d = activos[index];
-              return _DispositivoCard(
-                dispositivo: d,
-                onTap: () => context.push(
-                  '/operacion/${d.idDispositivo}',
-                ),
-              );
-            },
-          );
-        },
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const Icon(Icons.phone_android, size: 64, color: AppColors.darkBlue),
+          const SizedBox(height: 20),
+          TextField(controller: _codigo, decoration: const InputDecoration(labelText: 'Código del dispositivo')),
+          const SizedBox(height: 12),
+          TextField(controller: _token, obscureText: true, decoration: const InputDecoration(labelText: 'Credencial operativa')),
+          if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.red))),
+          const SizedBox(height: 20),
+          FilledButton(onPressed: _loading ? null : _activate, child: _loading ? const CircularProgressIndicator() : const Text('ACTIVAR MODO OPERATIVO')),
+          const SizedBox(height: 12),
+          TextButton(onPressed: () => context.go('/login'), child: const Text('Volver al acceso administrativo')),
+        ],
       ),
     );
   }
 }
 
+// ignore: unused_element
 class _DispositivoCard extends StatelessWidget {
   const _DispositivoCard({required this.dispositivo, required this.onTap});
 
@@ -91,6 +92,7 @@ class _DispositivoCard extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.error, required this.onRetry});
 

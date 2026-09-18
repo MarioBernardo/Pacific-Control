@@ -3,6 +3,7 @@ from app.auth.authorization import cargo_required
 from app.models.novedad import Novedad
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.novedad_service import NovedadService
+from app.services.query_service import paginated
 
 
 novedades_bp = Blueprint("novedades", __name__, url_prefix="/novedades")
@@ -35,7 +36,9 @@ def create_novedad():
 @novedades_bp.get("")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def list_novedades():
-    return jsonify({"data": [_serialize_novedad(item) for item in novedad_service.get_all()]}), 200
+    try: items, meta = paginated(Novedad, filters={"estado": Novedad.estado, "tipo": Novedad.tipo, "id_empleado": Novedad.id_empleado, "id_turno": Novedad.id_turno}, sort_fields={"id_novedad": Novedad.id_novedad, "fecha_hora": Novedad.fecha_hora, "tipo": Novedad.tipo})
+    except CrudValidationError as error: return jsonify({"error": str(error), "detalles": error.errors}), 400
+    return jsonify({"data": [_serialize_novedad(item) for item in items], "meta": meta}), 200
 
 
 @novedades_bp.get("/<int:novedad_id>")

@@ -6,6 +6,12 @@ import '../../config/app_environment.dart';
 import '../../services/authenticated_api_client.dart';
 import 'services/auth_service.dart';
 import 'services/auth_session.dart';
+import '../attendance/providers/asistencias_provider.dart';
+import '../devices/providers/dispositivos_provider.dart';
+import '../employees/providers/empleados_provider.dart';
+import '../incidents/providers/novedades_provider.dart';
+import '../positions/providers/puestos_provider.dart';
+import '../shifts/providers/turnos_provider.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
@@ -79,6 +85,12 @@ class AuthController extends Notifier<AuthState> {
       await ref.read(authServiceProvider).logout();
     } finally {
       state = const AuthState.unauthenticated();
+      ref.invalidate(empleadosProvider);
+      ref.invalidate(puestosProvider);
+      ref.invalidate(dispositivosProvider);
+      ref.invalidate(turnosProvider);
+      ref.invalidate(asistenciasProvider);
+      ref.invalidate(novedadesProvider);
     }
   }
 }

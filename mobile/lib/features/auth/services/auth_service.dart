@@ -72,7 +72,12 @@ class AuthService {
       await logout();
       return null;
     }
-    return AuthSession.fromJson(decoded);
+    final session = AuthSession.fromJson(decoded);
+    if (_isExpired(session.accessToken)) {
+      await logout();
+      return null;
+    }
+    return session;
   }
 
   Future<void> logout() => _storage.delete(key: _sessionKey).timeout(_storageTimeout);
@@ -83,6 +88,24 @@ class AuthService {
       return decoded is Map<String, dynamic> ? decoded : null;
     } on FormatException {
       return null;
+    }
+  }
+
+  bool _isExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      final exp = _decodeObject(payload)?['exp'];
+      return exp is! num ||
+          DateTime.fromMillisecondsSinceEpoch(
+            exp.toInt() * 1000,
+            isUtc: true,
+          ).isBefore(DateTime.now().toUtc());
+    } catch (_) {
+      return true;
     }
   }
 }

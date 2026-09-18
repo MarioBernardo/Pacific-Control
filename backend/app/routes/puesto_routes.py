@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from app.auth.authorization import cargo_required
 from app.models.puesto import Puesto
 from app.services.crud_utils import CrudConflictError, CrudValidationError
+from app.services.query_service import paginated
 from app.services.puesto_service import PuestoService
 
 
@@ -35,7 +36,9 @@ def create_puesto():
 @puestos_bp.get("")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def list_puestos():
-    return jsonify({"data": [_serialize_puesto(puesto) for puesto in puesto_service.get_all()]}), 200
+    try: items, meta = paginated(Puesto, filters={"estado": Puesto.estado}, search_columns=(Puesto.nombre_puesto, Puesto.direccion), sort_fields={"id_puesto": Puesto.id_puesto, "nombre_puesto": Puesto.nombre_puesto})
+    except CrudValidationError as error: return jsonify({"error": str(error), "detalles": error.errors}), 400
+    return jsonify({"data": [_serialize_puesto(item) for item in items], "meta": meta}), 200
 
 
 @puestos_bp.get("/<int:puesto_id>")

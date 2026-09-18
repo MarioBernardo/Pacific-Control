@@ -77,3 +77,26 @@ El backend actual no implementa un mecanismo específico de manejo de errores pa
 Las especificaciones CRUD indican que los campos obligatorios deberán validarse antes de guardar información y que no se permitirá registrar información incompleta. Sin embargo, aún no se han definido los códigos HTTP, el formato JSON de los errores, los mensajes ni los controladores necesarios para materializar esas validaciones.
 
 La autenticación JWT no está implementada y, por tanto, no existen respuestas de error de autenticación o autorización en la API actual.
+# Contrato actualizado: operación y colecciones
+
+Todas las rutas CRUD administrativas conservan JWT y su matriz de roles. Sus
+GET de colección devuelven `data` y `meta` (`page`, `per_page`, `total`,
+`pages`), con un máximo de 100 filas. Los filtros dependen del recurso y el
+orden sólo admite campos declarados por el endpoint.
+
+| Método | Ruta | Propósito | Autenticación | Resultado principal |
+|---|---|---|---|---|
+| POST | `/auth/login` | Crear sesión administrativa | Pública | JWT y empleado; 400/401 |
+| GET/POST | `/empleados`, `/puestos`, `/dispositivos`, `/turnos`, `/asistencias`, `/novedades` | Consultar/crear | JWT y rol vigente | 200/201/400/401/403 |
+| GET/PUT/PATCH | `/<recurso>/<id>` y `/<recurso>/<id>/estado` | Consultar/editar/cambiar estado | JWT y rol vigente | 200/400/401/403/404 |
+| GET | `/turnos/meta/opciones` | Catálogos de turno | JWT | 200 |
+| GET | `/operacion/dispositivos/codigo/<codigo>` | Resolver código durante aprovisionamiento | Pública | Datos sin secreto; 200/404 |
+| GET | `/operacion/dispositivos/<id>` | Validar dispositivo y puesto | `X-Device-Token` | 200/401/404 |
+| GET | `/operacion/dispositivos/<id>/guardias` | Asignaciones vigentes del día | `X-Device-Token` | 200/401/404 |
+| GET/POST/DELETE | `/operacion/dispositivos/<id>/sesion[/identificar]` | Consultar, identificar o finalizar | `X-Device-Token` | 200/400/401/404/503 |
+| POST | `/operacion/dispositivos/<id>/asistencias` | Registrar al guardia de sesión | `X-Device-Token` + sesión Redis | 201/400/401/409 |
+| POST | `/operacion/dispositivos/<id>/novedades` | Reportar como guardia de sesión | `X-Device-Token` + sesión Redis | 201/400/401/409 |
+
+La API deriva `id_empleado`, `id_turno` e `id_dispositivo` de la sesión en las
+escrituras operativas. Un JSON que no sea objeto devuelve 400. El cliente no
+puede usar esos cuerpos para suplantar a otro empleado.

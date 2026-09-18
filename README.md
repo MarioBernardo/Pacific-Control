@@ -444,3 +444,19 @@ Proyecto académico desarrollado para la asignatura de Desarrollo de Aplicacione
 ## Video de demostración
 
 El video de demostración será incorporado posteriormente como parte de la entrega.
+# Cierre técnico operativo (2026-09)
+
+Pacific Control separa dos contextos: la administración usa JWT y roles; el modo
+operativo usa una credencial propia por dispositivo (`X-Device-Token`) y una
+sesión Redis de 12 horas. Ejecute `flask db upgrade` y luego el seed operativo
+para aprovisionar hashes de credenciales y asignaciones vigentes. Las colecciones
+administrativas aceptan `page`, `per_page` (máximo 100), filtros, `search`,
+`sort` y `order=asc|desc` según la lista blanca de cada recurso.
+# Cierre técnico operativo (2026-09)
+
+Pacific Control separa dos contextos: la administración usa JWT y roles; el modo
+operativo usa una credencial propia por dispositivo (`X-Device-Token`) y una
+sesión Redis de 12 horas. Ejecute `flask db upgrade` y luego el seed operativo
+para aprovisionar hashes de credenciales y asignaciones vigentes. Las colecciones
+administrativas aceptan `page`, `per_page` (máximo 100), filtros, `search`,
+`sort` y `order=asc|desc` según la lista blanca de cada recurso.

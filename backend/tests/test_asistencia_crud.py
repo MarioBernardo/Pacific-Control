@@ -75,7 +75,7 @@ class AsistenciaCrudTestCase(unittest.TestCase):
         self.assertEqual(self.client.get(f"/asistencias/{record_id}", headers=headers).status_code, 200)
         updated = self.client.put(f"/asistencias/{record_id}", json={"observacion": "Actualizada"}, headers=headers)
         self.assertEqual(updated.status_code, 200)
-        status = self.client.patch(f"/asistencias/{record_id}/estado", json={"estado": "validada"}, headers=headers)
+        status = self.client.patch(f"/asistencias/{record_id}/estado", json={"estado": "anulada"}, headers=headers)
         self.assertEqual(status.status_code, 200)
 
     def test_invalid_payload_and_missing_references_return_400(self):

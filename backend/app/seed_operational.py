@@ -119,7 +119,7 @@ def seed_operational_demo() -> dict[str, int]:
         "novedades": 0,
     }
 
-    demo_date = date(2026, 9, 13)
+    demo_date = date.today()
     first_turno = None
 
     for building, data in OFFICIAL_ASSIGNMENTS.items():
@@ -159,6 +159,9 @@ def seed_operational_demo() -> dict[str, int]:
         else:
             device.id_puesto = puesto.id_puesto
             device.estado = "activo"
+        device.token_operativo_hash = generate_password_hash(
+            f"{data['device']}-OPERACION"
+        )
 
         names_for_assignment = (
             [(name, "FIJO") for name in data["fixed"]]
@@ -212,7 +215,7 @@ def seed_operational_demo() -> dict[str, int]:
         if attendance is None:
             db.session.add(
                 Asistencia(
-                    fecha_hora=datetime(2026, 9, 13, 8, 0),
+                    fecha_hora=datetime.combine(demo_date, time(8, 0)),
                     latitud=0,
                     longitud=0,
                     observacion=f"Demo {puesto.nombre_puesto}",
@@ -236,7 +239,7 @@ def seed_operational_demo() -> dict[str, int]:
                 Novedad(
                     tipo="CONTROL OPERATIVO",
                     descripcion=f"Registro demo de {puesto.nombre_puesto}",
-                    fecha_hora=datetime(2026, 9, 13, 8, 30),
+                    fecha_hora=datetime.combine(demo_date, time(8, 30)),
                     estado="abierta",
                     id_empleado=employee.id_empleado,
                     id_turno=turno.id_turno,

@@ -4,6 +4,7 @@ from app.extensions import db
 from app.models.empleado import Empleado
 from app.repositories.empleado_repository import EmpleadoRepository
 from app.services.cache_service import cache_service
+from app.domain import EMPLOYEE_ROLES
 
 
 class EmpleadoValidationError(Exception):
@@ -79,6 +80,8 @@ class EmpleadoService:
         if empleado is None:
             return None
 
+        if not isinstance(payload, dict):
+            raise EmpleadoValidationError({"body": "El cuerpo debe ser un objeto JSON."})
         if set(payload) != {"estado"} or not isinstance(payload["estado"], bool):
             raise EmpleadoValidationError(
                 {"estado": "Debe enviarse únicamente un valor booleano para estado."}
@@ -120,6 +123,11 @@ class EmpleadoService:
                 )
                 continue
             data[field] = value
+
+        if "cargo" in data:
+            data["cargo"] = data["cargo"].upper()
+            if data["cargo"] not in EMPLOYEE_ROLES:
+                errors["cargo"] = "Use ADMINISTRADOR, SUPERVISOR o GUARDIA."
 
         correo = data.get("correo")
         if correo and ("@" not in correo or correo.startswith("@") or correo.endswith("@")):

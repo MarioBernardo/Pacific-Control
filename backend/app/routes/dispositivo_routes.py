@@ -3,6 +3,7 @@ from app.auth.authorization import cargo_required
 from app.models.dispositivo import Dispositivo
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.dispositivo_service import DispositivoService
+from app.services.query_service import paginated
 
 
 dispositivos_bp = Blueprint("dispositivos", __name__, url_prefix="/dispositivos")
@@ -35,7 +36,9 @@ def create_dispositivo():
 @dispositivos_bp.get("")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def list_dispositivos():
-    return jsonify({"data": [_serialize_dispositivo(item) for item in dispositivo_service.get_all()]}), 200
+    try: items, meta = paginated(Dispositivo, filters={"estado": Dispositivo.estado, "id_puesto": Dispositivo.id_puesto}, search_columns=(Dispositivo.codigo_dispositivo,), sort_fields={"id_dispositivo": Dispositivo.id_dispositivo, "codigo_dispositivo": Dispositivo.codigo_dispositivo})
+    except CrudValidationError as error: return jsonify({"error": str(error), "detalles": error.errors}), 400
+    return jsonify({"data": [_serialize_dispositivo(item) for item in items], "meta": meta}), 200
 
 
 @dispositivos_bp.get("/<int:dispositivo_id>")

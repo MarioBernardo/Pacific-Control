@@ -4,12 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../services/authenticated_api_client.dart';
 import '../../../theme/app_colors.dart';
-import '../../attendance/models/asistencia.dart';
-import '../../attendance/services/asistencia_service.dart';
-import '../../incidents/models/novedad.dart';
-import '../../incidents/services/novedad_service.dart';
 import '../models/device_session.dart';
 import '../providers/operacion_provider.dart';
+import '../services/operacion_service.dart';
 
 /// Main operative screen shown after a guard identifies themselves.
 class GuardiaTrabajoPage extends ConsumerWidget {
@@ -235,23 +232,12 @@ class _AsistenciaDialogState extends ConsumerState<_AsistenciaDialog> {
     });
 
     try {
-      final service = ref.read(asistenciaServiceProvider);
-      final now = DateTime.now();
-
-      await service.create(
-        Asistencia(
-          fechaHora: now.toIso8601String(),
-          latitud: '0',
-          longitud: '0',
-          observacion: _observacionController.text.trim().isEmpty
-              ? null
-              : _observacionController.text.trim(),
-          estado: 'registrada',
-          idEmpleado: widget.guardia.idEmpleado,
-          idTurno: widget.guardia.idTurno ?? 0,
-          idDispositivo: widget.dispositivo.idDispositivo,
-        ),
+      await ref.read(operacionServiceProvider).createAttendance(
+        widget.dispositivo.idDispositivo,
+        latitud: '0', longitud: '0',
+        observacion: _observacionController.text.trim().isEmpty ? null : _observacionController.text.trim(),
       );
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _success = true;
@@ -363,17 +349,11 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
     });
 
     try {
-      final service = ref.read(novedadServiceProvider);
-      await service.create(
-        Novedad(
-          tipo: _tipoController.text.trim(),
-          descripcion: _descripcionController.text.trim(),
-          fechaHora: DateTime.now().toIso8601String(),
-          estado: 'abierta',
-          idEmpleado: widget.guardia.idEmpleado,
-          idTurno: widget.guardia.idTurno ?? 0,
-        ),
+      await ref.read(operacionServiceProvider).createIncident(
+        widget.dispositivo.idDispositivo,
+        tipo: _tipoController.text.trim(), descripcion: _descripcionController.text.trim(),
       );
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _success = true;

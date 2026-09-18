@@ -74,7 +74,18 @@ class DispositivosPage extends ConsumerWidget {
     WidgetRef ref, [
     Dispositivo? dispositivo,
   ]) async {
-    final puestos = ref.read(puestosProvider).valueOrNull ?? <Puesto>[];
+    List<Puesto> puestos;
+    try {
+      puestos = await ref.read(puestosProvider.future);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudieron cargar los puestos.')),
+        );
+      }
+      return;
+    }
+    if (!context.mounted) return;
     if (puestos.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Debe existir al menos un puesto.')),

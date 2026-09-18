@@ -3,6 +3,7 @@ from app.models.dispositivo import Dispositivo
 from app.models.puesto import Puesto
 from app.repositories.dispositivo_repository import DispositivoRepository
 from app.services.cache_service import cache_service
+from app.domain import ACTIVE_STATES, validate_catalog
 from app.services.crud_utils import (
     CrudConflictError,
     CrudValidationError,
@@ -62,7 +63,7 @@ class DispositivoService:
         dispositivo = self.repository.get_by_id(dispositivo_id)
         if dispositivo is None:
             return None
-        if set(payload) != {"estado"}:
+        if not isinstance(payload, dict) or set(payload) != {"estado"}:
             raise CrudValidationError({"estado": "Debe enviar únicamente el estado."})
         errors = {}
         estado = required_string(payload, "estado", 20, errors)
@@ -87,6 +88,7 @@ class DispositivoService:
             data["id_puesto"] = puesto_id
         if "modelo" in payload:
             data["modelo"] = modelo
+        validate_catalog(data.get("estado"), ACTIVE_STATES, "estado", errors)
         raise_if_invalid(errors, data, require_all)
         return data
 

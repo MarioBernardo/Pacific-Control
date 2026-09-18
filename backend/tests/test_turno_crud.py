@@ -97,11 +97,11 @@ class TurnoCrudTestCase(unittest.TestCase):
 
         updated = self.client.put(
             f"/turnos/{turno_id}",
-            json={"estado": "programado"},
+            json={"estado": "activo"},
             headers=headers,
         )
         self.assertEqual(updated.status_code, 200)
-        self.assertEqual(updated.get_json()["data"]["estado"], "programado")
+        self.assertEqual(updated.get_json()["data"]["estado"], "activo")
 
         status = self.client.patch(
             f"/turnos/{turno_id}/estado",

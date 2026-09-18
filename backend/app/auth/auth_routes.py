@@ -12,7 +12,7 @@ auth_service = AuthService()
 def login():
     """Authenticate empleado and return JWT access token."""
     payload = request.get_json(silent=True)
-    if not payload:
+    if not isinstance(payload, dict):
         return jsonify({"error": "Debe enviar un objeto JSON válido."}), 400
 
     correo = payload.get("correo")

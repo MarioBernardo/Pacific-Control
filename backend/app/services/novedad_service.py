@@ -1,9 +1,11 @@
+import logging
 from app.extensions import db
 from app.models.empleado import Empleado
 from app.models.novedad import Novedad
 from app.models.turno import Turno
 from app.repositories.novedad_repository import NovedadRepository
 from app.services.cache_service import cache_service
+from app.domain import INCIDENT_STATES, validate_catalog
 from app.services.crud_utils import (
     CrudValidationError,
     raise_if_invalid,
@@ -45,7 +47,10 @@ class NovedadService:
         from app.tasks import process_novedad
 
         # Procesamiento asíncrono
-        process_novedad.delay(novedad.id_novedad)
+        try:
+            process_novedad.delay(novedad.id_novedad)
+        except Exception as error:
+            logging.getLogger(__name__).warning("Novedad %s persistida; broker no disponible: %s", novedad.id_novedad, error)
 
         return novedad
 
@@ -87,7 +92,7 @@ class NovedadService:
         return novedad
 
     def change_status(self, novedad_id: int, payload: dict) -> Novedad | None:
-        novedad = self.get_by_id(novedad_id)
+        novedad = self.repository.get_by_id(novedad_id)
 
         if novedad is None:
             return None
@@ -102,6 +107,7 @@ class NovedadService:
         errors = {}
 
         estado = required_string(payload, "estado", 20, errors)
+        validate_catalog(estado, INCIDENT_STATES, "estado", errors)
 
         raise_if_invalid(
             errors,
@@ -146,24 +152,20 @@ class NovedadService:
             if field in payload and value is not None:
                 data[field] = value
 
+        validate_catalog(data.get("estado"), INCIDENT_STATES, "estado", errors)
         raise_if_invalid(errors, data, require_all)
 
         return data
 
     def _validate_references(self, data: dict) -> None:
         errors = {}
-
-        if (
-            "id_empleado" in data
-            and db.session.get(Empleado, data["id_empleado"]) is None
-        ):
-            errors["id_empleado"] = "El empleado indicado no existe."
-
-        if (
-            "id_turno" in data
-            and db.session.get(Turno, data["id_turno"]) is None
-        ):
+        empleado = db.session.get(Empleado, data["id_empleado"]) if "id_empleado" in data else None
+        turno = db.session.get(Turno, data["id_turno"]) if "id_turno" in data else None
+        if "id_empleado" in data and (empleado is None or not empleado.estado):
+            errors["id_empleado"] = "El empleado indicado no existe o está inactivo."
+        if "id_turno" in data and turno is None:
             errors["id_turno"] = "El turno indicado no existe."
-
+        if empleado and turno and turno.id_empleado != empleado.id_empleado:
+            errors["id_turno"] = "El turno no corresponde al empleado."
         if errors:
             raise CrudValidationError(errors)

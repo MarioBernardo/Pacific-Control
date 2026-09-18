@@ -36,6 +36,7 @@ _TEST_CONFIG = {
     "SQLALCHEMY_DATABASE_URI": "sqlite://",
     "CACHE_ENABLED": False,
     "JWT_SECRET_KEY": TEST_JWT_SECRET_KEY,
+    "ALLOW_LEGACY_OPERATIVE_DEVICES": True,
 }
 
 
@@ -80,7 +81,7 @@ def _make_empleado(cedula, nombres, apellidos, correo, cargo="GUARDIA", estado=T
 
 def _make_turno(empleado_id, puesto_id, tipo_asignacion="FIJO", tipo_turno="24 HORAS"):
     t = Turno(
-        fecha=date(2026, 9, 13),
+        fecha=date.today(),
         hora_inicio=time(0, 0),
         hora_fin=time(0, 0),
         estado="activo",
@@ -142,6 +143,22 @@ class OperacionFlowTestCase(unittest.TestCase):
     def test_get_device_by_id_requires_no_jwt(self):
         resp = self.client.get(f"/operacion/dispositivos/{self.device.id_dispositivo}")
         self.assertEqual(resp.status_code, 200)
+
+    def test_sensitive_operation_requires_valid_device_token(self):
+        self.app.config["ALLOW_LEGACY_OPERATIVE_DEVICES"] = False
+        self.device.token_operativo_hash = generate_password_hash("device-secret")
+        db.session.commit()
+        path = f"/operacion/dispositivos/{self.device.id_dispositivo}/guardias"
+        self.assertEqual(self.client.get(path).status_code, 401)
+        self.assertEqual(
+            self.client.get(path, headers={"X-Device-Token": "wrong"}).status_code,
+            401,
+        )
+        self.assertEqual(
+            self.client.get(path, headers={"X-Device-Token": "device-secret"}).status_code,
+            200,
+        )
+        self.app.config["ALLOW_LEGACY_OPERATIVE_DEVICES"] = True
 
     def test_get_device_by_codigo_requires_no_jwt(self):
         resp = self.client.get("/operacion/dispositivos/codigo/BAVIERA-01")

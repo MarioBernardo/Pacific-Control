@@ -13,6 +13,8 @@ class RedisCache:
         self._redis_errors = (OSError,)
 
     def init_app(self, app) -> None:
+        self._client = None
+        self._enabled = False
         self._ttl = app.config["CACHE_DEFAULT_TTL"]
         if not app.config["CACHE_ENABLED"]:
             return
@@ -42,12 +44,13 @@ class RedisCache:
             self.delete(key)
             return None
 
-    def set_json(self, key: str, value) -> None:
-        self._execute("set", key, json.dumps(value), ex=self._ttl)
+    def set_json(self, key: str, value, ttl: int | None = None) -> bool:
+        return bool(self._execute("set", key, json.dumps(value), ex=ttl or self._ttl))
 
-    def delete(self, *keys: str) -> None:
+    def delete(self, *keys: str) -> bool:
         if keys:
-            self._execute("delete", *keys)
+            return self._execute("delete", *keys) is not None
+        return True
 
     def _execute(self, operation: str, *args, **kwargs):
         if not self._enabled or self._client is None:
@@ -56,5 +59,8 @@ class RedisCache:
             return getattr(self._client, operation)(*args, **kwargs)
         except self._redis_errors as error:
             logger.warning("Redis no está disponible; se utilizará la base de datos: %s", error)
-            self._enabled = False
             return None
+
+    @property
+    def available(self) -> bool:
+        return self._enabled and self._client is not None

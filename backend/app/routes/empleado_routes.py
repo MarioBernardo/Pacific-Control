@@ -6,6 +6,8 @@ from app.services.empleado_service import (
     EmpleadoService,
     EmpleadoValidationError,
 )
+from app.services.query_service import paginated
+from app.services.crud_utils import CrudValidationError
 
 
 empleados_bp = Blueprint("empleados", __name__, url_prefix="/empleados")
@@ -49,8 +51,10 @@ def create_empleado():
 @empleados_bp.get("")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR")
 def list_empleados():
-    empleados = empleado_service.get_all()
-    return jsonify({"data": [_serialize_empleado(empleado) for empleado in empleados]}), 200
+    try:
+        items, meta = paginated(Empleado, filters={"estado": Empleado.estado, "cargo": Empleado.cargo}, search_columns=(Empleado.nombres, Empleado.apellidos, Empleado.cedula, Empleado.correo), sort_fields={"id_empleado": Empleado.id_empleado, "nombres": Empleado.nombres, "correo": Empleado.correo})
+    except CrudValidationError as error: return jsonify({"error": str(error), "detalles": error.errors}), 400
+    return jsonify({"data": [_serialize_empleado(item) for item in items], "meta": meta}), 200
 
 
 @empleados_bp.get("/<int:empleado_id>")

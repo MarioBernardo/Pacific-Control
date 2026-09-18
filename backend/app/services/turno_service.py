@@ -4,6 +4,7 @@ from app.models.puesto import Puesto
 from app.models.turno import Turno
 from app.repositories.turno_repository import TurnoRepository
 from app.services.cache_service import cache_service
+from app.domain import ACTIVE_STATES, validate_catalog
 from app.services.crud_utils import (
     CrudValidationError,
     raise_if_invalid,
@@ -72,6 +73,7 @@ class TurnoService:
             raise CrudValidationError({"estado": "Debe enviar únicamente el estado."})
         errors = {}
         estado = required_string(payload, "estado", 20, errors)
+        validate_catalog(estado, ACTIVE_STATES, "estado", errors)
         raise_if_invalid(errors, {"estado": estado} if estado else {}, True)
         turno.estado = estado
         turno = save_entity(self.repository, turno, "No fue posible guardar el turno.")
@@ -105,6 +107,7 @@ class TurnoService:
             errors["tipo_asignacion"] = (
                 f"Valor no permitido. Use: {', '.join(sorted(VALID_TIPO_ASIGNACION))}."
             )
+        validate_catalog(data.get("estado"), ACTIVE_STATES, "estado", errors)
         raise_if_invalid(errors, data, require_all)
         return data
 

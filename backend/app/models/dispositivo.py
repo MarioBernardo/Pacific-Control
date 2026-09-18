@@ -10,6 +10,7 @@ class Dispositivo(db.Model):
     id_dispositivo = db.Column(Integer, primary_key=True)
     codigo_dispositivo = db.Column(String(50), unique=True, nullable=False)
     modelo = db.Column(String(100))
+    token_operativo_hash = db.Column(String(255), nullable=True)
     estado = db.Column(String(20), nullable=False)
     id_puesto = db.Column(Integer, ForeignKey("puestos.id_puesto"), nullable=False)
 
