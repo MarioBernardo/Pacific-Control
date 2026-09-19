@@ -16,7 +16,7 @@ from app.services.crud_utils import (
     validate_payload,
 )
 
-VALID_TIPO_TURNO = frozenset({"24 HORAS", "12 HORAS", "MIXTO"})
+VALID_TIPO_TURNO = frozenset({"24 HORAS", "12 HORAS"})
 VALID_TIPO_ASIGNACION = frozenset({"FIJO", "SACA_FRANCO"})
 
 

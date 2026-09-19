@@ -29,3 +29,15 @@ dispositivo se activa con código y token; después Flutter consume sólo rutas
 vigente y registra asistencia o novedad con la identidad derivada por el backend.
 La sesión administrativa guardada se descarta al restaurar si el `exp` del JWT
 ya venció. Android declara permiso `INTERNET` en el manifest principal.
+# Datos demo del modo operativo
+
+Use `BAVIERA-01` / `BavieraDemo2026!`, `CENTURY-01` /
+`CenturyDemo2026!`, `GRAND-VICTORIA-01` / `GrandVictoriaDemo2026!` o
+`VERTICE-01` / `VerticeDemo2026!`. El formulario ofrece siempre `12 HORAS` y
+`24 HORAS`, sin depender del puesto seleccionado. Estos tokens son locales.
+# Seleccion operativa
+
+Cada guardia aparece una sola vez. Al tocarlo, el operador debe elegir
+explicitamente 12 o 24 horas antes de identificarse. El boton queda deshabilitado
+mientras no exista seleccion y la API vincula la modalidad con el turno real
+utilizado por asistencia y novedades.

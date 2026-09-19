@@ -3,13 +3,21 @@ from datetime import date, datetime, time
 from werkzeug.security import generate_password_hash
 
 from app.auth.auth_seed import seed_demo_users
-from app.extensions import db
+from app.extensions import cache, db
 from app.models.asistencia import Asistencia
 from app.models.dispositivo import Dispositivo
 from app.models.empleado import Empleado
 from app.models.novedad import Novedad
 from app.models.puesto import Puesto
 from app.models.turno import Turno
+
+
+DEMO_DEVICE_TOKENS = {
+    "BAVIERA-01": "BavieraDemo2026!",
+    "CENTURY-01": "CenturyDemo2026!",
+    "GRAND-VICTORIA-01": "GrandVictoriaDemo2026!",
+    "VERTICE-01": "VerticeDemo2026!",
+}
 
 
 OFFICIAL_ASSIGNMENTS = {
@@ -54,7 +62,7 @@ OFFICIAL_ASSIGNMENTS = {
     "ED. VERTICE": {
         "address": "Edificio Vertice",
         "device": "VERTICE-01",
-        "shift": "MIXTO",
+        "shift": None,
         "fixed": [
             "DELGADO TITUAÑA ANDERSON DAVID",
         ],
@@ -66,7 +74,7 @@ OFFICIAL_ASSIGNMENTS = {
 }
 
 
-def _employee(full_name: str, index: int) -> Empleado:
+def _employee(full_name: str, index: int) -> tuple[Empleado, bool]:
     parts = full_name.split()
     correo = f"demo.guardia{index}@pacific.test"
 
@@ -74,7 +82,8 @@ def _employee(full_name: str, index: int) -> Empleado:
         db.select(Empleado).where(Empleado.correo == correo)
     ).scalar_one_or_none()
 
-    if employee is None:
+    created = employee is None
+    if created:
         employee = Empleado(
             cedula=f"0910000{index:03d}",
             nombres=" ".join(parts[2:]),
@@ -92,7 +101,7 @@ def _employee(full_name: str, index: int) -> Empleado:
         employee.cargo = "GUARDIA"
         employee.estado = True
 
-    return employee
+    return employee, created
 
 
 def seed_operational_demo() -> dict[str, int]:
@@ -105,13 +114,16 @@ def seed_operational_demo() -> dict[str, int]:
     for data in OFFICIAL_ASSIGNMENTS.values():
         names.extend(data["fixed"] + data["relief"])
 
+    created_employees = 0
     for index, name in enumerate(dict.fromkeys(names), start=1):
-        employees_by_name[name] = _employee(name, index)
+        employee, was_created = _employee(name, index)
+        employees_by_name[name] = employee
+        created_employees += int(was_created)
 
     db.session.flush()
 
     created = {
-        "empleados": len(employees_by_name),
+        "empleados": created_employees,
         "puestos": 0,
         "dispositivos": 0,
         "turnos": 0,
@@ -160,8 +172,9 @@ def seed_operational_demo() -> dict[str, int]:
             device.id_puesto = puesto.id_puesto
             device.estado = "activo"
         device.token_operativo_hash = generate_password_hash(
-            f"{data['device']}-OPERACION"
+            DEMO_DEVICE_TOKENS[data["device"]]
         )
+        cache.delete(f"pacific-control:operacion:sesion:{device.id_dispositivo}")
 
         names_for_assignment = (
             [(name, "FIJO") for name in data["fixed"]]
@@ -170,37 +183,37 @@ def seed_operational_demo() -> dict[str, int]:
 
         for name, assignment in names_for_assignment:
             employee = employees_by_name[name]
+            for shift in ("12 HORAS", "24 HORAS"):
+                turno = db.session.execute(
+                    db.select(Turno).where(
+                        Turno.fecha == demo_date,
+                        Turno.id_empleado == employee.id_empleado,
+                        Turno.id_puesto == puesto.id_puesto,
+                        Turno.tipo_turno == shift,
+                    )
+                ).scalar_one_or_none()
 
-            turno = db.session.execute(
-                db.select(Turno).where(
-                    Turno.fecha == demo_date,
-                    Turno.id_empleado == employee.id_empleado,
-                    Turno.id_puesto == puesto.id_puesto,
-                )
-            ).scalar_one_or_none()
+                if turno is None:
+                    turno = Turno(
+                        fecha=demo_date,
+                        hora_inicio=time(0, 0),
+                        hora_fin=time(0, 0),
+                        estado="activo",
+                        tipo_turno=shift,
+                        tipo_asignacion=assignment,
+                        id_empleado=employee.id_empleado,
+                        id_puesto=puesto.id_puesto,
+                    )
+                    db.session.add(turno)
+                    created["turnos"] += 1
+                else:
+                    turno.tipo_asignacion = assignment
+                    turno.estado = "activo"
 
-            if turno is None:
-                turno = Turno(
-                    fecha=demo_date,
-                    hora_inicio=time(0, 0),
-                    hora_fin=time(0, 0),
-                    estado="activo",
-                    tipo_turno=data["shift"],
-                    tipo_asignacion=assignment,
-                    id_empleado=employee.id_empleado,
-                    id_puesto=puesto.id_puesto,
-                )
-                db.session.add(turno)
-                created["turnos"] += 1
-            else:
-                turno.tipo_turno = data["shift"]
-                turno.tipo_asignacion = assignment
-                turno.estado = "activo"
+                db.session.flush()
 
-            db.session.flush()
-
-            if first_turno is None:
-                first_turno = (turno, device, employee, puesto)
+                if first_turno is None:
+                    first_turno = (turno, device, employee, puesto)
 
     if first_turno is not None:
         turno, device, employee, puesto = first_turno

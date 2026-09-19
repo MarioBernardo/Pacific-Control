@@ -6,6 +6,7 @@ import '../../../services/authenticated_api_client.dart';
 import '../../../theme/app_colors.dart';
 import '../models/device_session.dart';
 import '../providers/operacion_provider.dart';
+import 'turno_selector.dart';
 
 /// Shows the list of available guards for the device's puesto.
 class GuardiaListaPage extends ConsumerWidget {
@@ -94,16 +95,16 @@ class GuardiaListaPage extends ConsumerWidget {
     WidgetRef ref,
     GuardiaDisponible guardia,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final tipoTurno = await showDialog<String>(
       context: context,
       builder: (_) => _ConfirmDialog(guardia: guardia),
     );
-    if (confirmed != true || !context.mounted) return;
+    if (tipoTurno == null || !context.mounted) return;
 
     try {
       await ref
           .read(deviceSessionProvider(deviceId).notifier)
-          .identifyGuard(guardia.idEmpleado);
+          .identifyGuard(guardia.idEmpleado, tipoTurno);
       if (context.mounted) {
         context.go('/operacion/$deviceId/trabajo');
       }
@@ -174,17 +175,9 @@ class _GuardiaCard extends StatelessWidget {
           guardia.nombreCompleto,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        subtitle: Row(
-          children: [
-            _AsignacionBadge(tipo: guardia.tipoAsignacion),
-            if (guardia.tipoTurno != null) ...[
-              const SizedBox(width: 8),
-              Text(
-                guardia.tipoTurno!,
-                style: const TextStyle(fontSize: 12),
-              ),
-            ],
-          ],
+        subtitle: Align(
+          alignment: Alignment.centerLeft,
+          child: _AsignacionBadge(tipo: guardia.tipoAsignacion),
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: onTap,
@@ -218,9 +211,17 @@ class _AsignacionBadge extends StatelessWidget {
   }
 }
 
-class _ConfirmDialog extends StatelessWidget {
+class _ConfirmDialog extends StatefulWidget {
   const _ConfirmDialog({required this.guardia});
   final GuardiaDisponible guardia;
+
+  @override
+  State<_ConfirmDialog> createState() => _ConfirmDialogState();
+}
+
+class _ConfirmDialogState extends State<_ConfirmDialog> {
+  String? _tipoTurno;
+  GuardiaDisponible get guardia => widget.guardia;
 
   @override
   Widget build(BuildContext context) {
@@ -238,16 +239,26 @@ class _ConfirmDialog extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _AsignacionBadge(tipo: guardia.tipoAsignacion),
+          const SizedBox(height: 20),
+          TurnoSelector(
+            opciones: guardia.turnosDisponibles
+                .map((turno) => turno.tipoTurno)
+                .toList(),
+            seleccion: _tipoTurno,
+            onChanged: (value) => setState(() => _tipoTurno = value),
+          ),
         ],
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
+          onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Confirmar'),
+          onPressed: _tipoTurno == null
+              ? null
+              : () => Navigator.of(context).pop(_tipoTurno),
+          child: const Text('Identificar'),
         ),
       ],
     );

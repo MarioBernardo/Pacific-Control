@@ -215,7 +215,7 @@ class _TurnoFormDialogState extends State<_TurnoFormDialog> {
   late String _tipoTurno;
   late String _tipoAsignacion;
 
-  static const _tiposTurno = ['24 HORAS', '12 HORAS', 'MIXTO'];
+  static const _tiposTurno = ['12 HORAS', '24 HORAS'];
   static const _tiposAsignacion = ['FIJO', 'SACA_FRANCO'];
 
   @override

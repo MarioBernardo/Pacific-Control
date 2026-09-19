@@ -28,7 +28,7 @@ El modelo contiene `id_turno`, `fecha`, `hora_inicio`, `hora_fin`, `estado`,
 `id_puesto` referencia a un Puesto; ambos son obligatorios. Asistencias y
 Novedades también pueden referenciar un turno.
 
-`tipo_turno` identifica `24 HORAS`, `12 HORAS` o `MIXTO`. `tipo_asignacion`
+`tipo_turno` identifica `12 HORAS` o `24 HORAS`, independientemente del puesto. `tipo_asignacion`
 identifica `FIJO` o `SACA_FRANCO`; no es un cargo laboral del empleado.
 
 El seed operativo idempotente `seed_operational_demo()` usa la distribución

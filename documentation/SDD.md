@@ -151,7 +151,7 @@ Home → [Operación de dispositivo]
 | GET | `/operacion/dispositivos/codigo/<codigo>` | Buscar por código (ej: BAVIERA-01) |
 | GET | `/operacion/dispositivos/<id>/guardias` | Guardias activos del puesto |
 | GET | `/operacion/dispositivos/<id>/sesion` | Sesión operativa actual |
-| POST | `/operacion/dispositivos/<id>/sesion/identificar` | Identificar guardia `{id_empleado}` |
+| POST | `/operacion/dispositivos/<id>/sesion/identificar` | Identificar guardia `{id_empleado, tipo_turno}` y resolver el turno real |
 | DELETE | `/operacion/dispositivos/<id>/sesion` | Limpiar identificación |
 
 ---
@@ -177,7 +177,7 @@ Home → [Operación de dispositivo]
 
 ### Valores permitidos
 
-- `tipo_turno`: `24 HORAS`, `12 HORAS`, `MIXTO`
+- `tipo_turno`: `12 HORAS` o `24 HORAS`, por turno e independiente del puesto.
 - `tipo_asignacion`: `FIJO`, `SACA_FRANCO`
 - `cargo`: `ADMINISTRADOR`, `SUPERVISOR`, `GUARDIA`
 - `puesto.estado`: `activo`, `inactivo`
@@ -194,9 +194,9 @@ El seed (`seed_operational.py`) es idempotente y crea:
 | ED. BAVIERA | BAVIERA-01 | 24 HORAS | TIPANTUÑA TACO DIEGO, CACHIHUANGO CEPEDA HUMBERTO | BERNARDO CAMPO MARIO, BETANCOURTH TITUAÑA BYRON |
 | ED. CENTURY PLAZA I | CENTURY-01 | 24 HORAS | CAIZAPANTA ITURRALDE VINICIO, VELEZ QUIÑONEZ LUIS | BERNARDO CAMPO MARIO, BETANCOURTH TITUAÑA BYRON |
 | ED. GRAND VICTORIA | GRAND-VICTORIA-01 | 12 HORAS | MENDEZ AGUAS FRANKLIN, CEVALLOS SANCHEZ LENIN | PANGAY QUEVEDO STALIN |
-| ED. VERTICE | VERTICE-01 | MIXTO | DELGADO TITUAÑA ANDERSON | BERNARDO CAMPO MARIO, BETANCOURTH TITUAÑA BYRON |
+| ED. VERTICE | VERTICE-01 | 12 HORAS laborables / 24 HORAS fin de semana | DELGADO TITUAÑA ANDERSON | BERNARDO CAMPO MARIO, BETANCOURTH TITUAÑA BYRON |
 
-**Nota sobre MIXTO:** Vértice opera 12 horas de lunes a viernes y 24 horas sábado/domingo. Los horarios exactos no están definidos en el modelo actual.
+MIXTO no se acepta en turnos nuevos. Los registros historicos ambiguos se conservan. El seed E2E crea para cada guardia vigente un turno de 12 HORAS y otro de 24 HORAS; la lista operativa agrupa ambos en una sola entrada con `turnos_disponibles`.
 
 ### Usuarios de demostración
 

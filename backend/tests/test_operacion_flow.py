@@ -18,14 +18,17 @@ Also covers:
 
 import unittest
 from datetime import date, time
+from unittest.mock import patch
 
 from flask_jwt_extended import create_access_token
 from werkzeug.security import generate_password_hash
 
 from app import create_app
-from app.extensions import db
+from app.extensions import cache, db
+from app.models.asistencia import Asistencia
 from app.models.dispositivo import Dispositivo
 from app.models.empleado import Empleado
+from app.models.novedad import Novedad
 from app.models.puesto import Puesto
 from app.models.turno import Turno
 
@@ -120,6 +123,8 @@ class OperacionFlowTestCase(unittest.TestCase):
         cls.ctx.pop()
 
     def setUp(self):
+        db.session.query(Asistencia).delete()
+        db.session.query(Novedad).delete()
         db.session.query(Turno).delete()
         db.session.query(Dispositivo).delete()
         db.session.query(Puesto).delete()
@@ -179,7 +184,7 @@ class OperacionFlowTestCase(unittest.TestCase):
     def test_identify_guard_requires_no_jwt(self):
         resp = self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
-            json={"id_empleado": self.guard.id_empleado},
+            json={"id_empleado": self.guard.id_empleado, "tipo_turno": "24 HORAS"},
         )
         self.assertEqual(resp.status_code, 200)
 
@@ -216,6 +221,12 @@ class OperacionFlowTestCase(unittest.TestCase):
     # ── Available guards ────────────────────────────────────────────────
 
     def test_list_guards_returns_active_guards_with_assignment(self):
+        _make_turno(
+            self.guard.id_empleado,
+            self.puesto.id_puesto,
+            tipo_turno="12 HORAS",
+        )
+        db.session.commit()
         resp = self.client.get(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/guardias"
         )
@@ -226,6 +237,10 @@ class OperacionFlowTestCase(unittest.TestCase):
         self.assertEqual(g["id_empleado"], self.guard.id_empleado)
         self.assertEqual(g["tipo_asignacion"], "FIJO")
         self.assertIn("nombre_completo", g)
+        self.assertEqual(
+            {item["tipo_turno"] for item in g["turnos_disponibles"]},
+            {"12 HORAS", "24 HORAS"},
+        )
 
     def test_list_guards_for_nonexistent_device_returns_404(self):
         resp = self.client.get("/operacion/dispositivos/99999/guardias")
@@ -270,7 +285,7 @@ class OperacionFlowTestCase(unittest.TestCase):
     def test_identify_guard_sets_session(self):
         resp = self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
-            json={"id_empleado": self.guard.id_empleado},
+            json={"id_empleado": self.guard.id_empleado, "tipo_turno": "24 HORAS"},
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()["data"]
@@ -292,7 +307,7 @@ class OperacionFlowTestCase(unittest.TestCase):
     def test_identify_nonexistent_employee_returns_404(self):
         resp = self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
-            json={"id_empleado": 99999},
+            json={"id_empleado": 99999, "tipo_turno": "24 HORAS"},
         )
         self.assertEqual(resp.status_code, 404)
 
@@ -302,7 +317,7 @@ class OperacionFlowTestCase(unittest.TestCase):
         db.session.commit()
         resp = self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
-            json={"id_empleado": self.guard.id_empleado},
+            json={"id_empleado": self.guard.id_empleado, "tipo_turno": "24 HORAS"},
         )
         self.assertEqual(resp.status_code, 404)
         self.guard.estado = True
@@ -312,7 +327,7 @@ class OperacionFlowTestCase(unittest.TestCase):
         """An employee with no turno at this puesto cannot identify themselves."""
         resp = self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
-            json={"id_empleado": self.other_guard.id_empleado},
+            json={"id_empleado": self.other_guard.id_empleado, "tipo_turno": "24 HORAS"},
         )
         self.assertEqual(resp.status_code, 404)
 
@@ -326,7 +341,7 @@ class OperacionFlowTestCase(unittest.TestCase):
         db.session.commit()
         resp = self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
-            json={"id_empleado": sf.id_empleado},
+            json={"id_empleado": sf.id_empleado, "tipo_turno": "24 HORAS"},
         )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(
@@ -337,7 +352,7 @@ class OperacionFlowTestCase(unittest.TestCase):
     def test_clear_session_returns_200(self):
         self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
-            json={"id_empleado": self.guard.id_empleado},
+            json={"id_empleado": self.guard.id_empleado, "tipo_turno": "24 HORAS"},
         )
         resp = self.client.delete(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion"
@@ -347,6 +362,81 @@ class OperacionFlowTestCase(unittest.TestCase):
     def test_clear_nonexistent_device_returns_404(self):
         resp = self.client.delete("/operacion/dispositivos/99999/sesion")
         self.assertEqual(resp.status_code, 404)
+
+    def test_selected_shift_controls_session_attendance_and_incident(self):
+        turno_12 = _make_turno(
+            self.guard.id_empleado,
+            self.puesto.id_puesto,
+            tipo_turno="12 HORAS",
+        )
+        db.session.commit()
+        stored = {}
+
+        def set_json(key, value, ttl=None):
+            stored[key] = value
+            self.assertEqual(ttl, 43200)
+            return True
+
+        def delete(*keys):
+            deleted = False
+            for key in keys:
+                deleted = stored.pop(key, None) is not None or deleted
+            return deleted
+
+        with (
+            patch.object(cache, "set_json", side_effect=set_json),
+            patch.object(cache, "get_json", side_effect=lambda key: stored.get(key)),
+            patch.object(cache, "delete", side_effect=delete),
+            patch("app.tasks.process_novedad.delay"),
+        ):
+            identified = self.client.post(
+                f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
+                json={
+                    "id_empleado": self.guard.id_empleado,
+                    "tipo_turno": "12 HORAS",
+                    "id_turno": self.turno.id_turno,
+                },
+            )
+            self.assertEqual(identified.status_code, 200)
+            selected = identified.get_json()["data"]["guardia_identificado"]
+            self.assertEqual(selected["id_turno"], turno_12.id_turno)
+            self.assertEqual(selected["tipo_turno"], "12 HORAS")
+
+            attendance = self.client.post(
+                f"/operacion/dispositivos/{self.device.id_dispositivo}/asistencias",
+                json={"latitud": "0", "longitud": "0"},
+            )
+            self.assertEqual(attendance.status_code, 201, attendance.get_json())
+            self.assertEqual(attendance.get_json()["data"]["id_turno"], turno_12.id_turno)
+
+            incident = self.client.post(
+                f"/operacion/dispositivos/{self.device.id_dispositivo}/novedades",
+                json={"tipo": "CONTROL", "descripcion": "Prueba turno 12 horas"},
+            )
+            self.assertEqual(incident.status_code, 201, incident.get_json())
+            self.assertEqual(incident.get_json()["data"]["id_turno"], turno_12.id_turno)
+
+            self.client.delete(
+                f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion"
+            )
+            self.assertFalse(stored)
+
+            identified_24 = self.client.post(
+                f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
+                json={"id_empleado": self.guard.id_empleado, "tipo_turno": "24 HORAS"},
+            )
+            selected_24 = identified_24.get_json()["data"]["guardia_identificado"]
+            self.assertEqual(selected_24["id_turno"], self.turno.id_turno)
+            self.assertEqual(selected_24["tipo_turno"], "24 HORAS")
+
+    def test_unavailable_or_mixto_shift_cannot_be_selected(self):
+        for tipo, expected in (("12 HORAS", 404), ("MIXTO", 400)):
+            with self.subTest(tipo=tipo):
+                response = self.client.post(
+                    f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
+                    json={"id_empleado": self.guard.id_empleado, "tipo_turno": tipo},
+                )
+                self.assertEqual(response.status_code, expected)
 
     # ── Session does NOT grant admin access ─────────────────────────────
 
@@ -359,7 +449,7 @@ class OperacionFlowTestCase(unittest.TestCase):
         # Identify the guard in the operative session (no JWT used)
         self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
-            json={"id_empleado": self.guard.id_empleado},
+            json={"id_empleado": self.guard.id_empleado, "tipo_turno": "24 HORAS"},
         )
         # The guard's JWT (if they had one) must still be blocked from admin endpoints
         resp = self.client.post(
@@ -374,7 +464,7 @@ class OperacionFlowTestCase(unittest.TestCase):
         # No JWT — must be 401 even if operative session exists
         self.client.post(
             f"/operacion/dispositivos/{self.device.id_dispositivo}/sesion/identificar",
-            json={"id_empleado": self.guard.id_empleado},
+            json={"id_empleado": self.guard.id_empleado, "tipo_turno": "24 HORAS"},
         )
         resp = self.client.get("/turnos")
         self.assertEqual(resp.status_code, 401)
@@ -433,7 +523,7 @@ class TurnoValidationTestCase(unittest.TestCase):
         return payload
 
     def test_valid_tipo_turno_values_are_accepted(self):
-        for tipo in ("24 HORAS", "12 HORAS", "MIXTO"):
+        for tipo in ("24 HORAS", "12 HORAS"):
             with self.subTest(tipo=tipo):
                 resp = self.client.post(
                     "/turnos",
@@ -442,10 +532,40 @@ class TurnoValidationTestCase(unittest.TestCase):
                 )
                 self.assertEqual(resp.status_code, 201, resp.get_json())
 
+    def test_every_official_puesto_accepts_12_and_24_hours(self):
+        for nombre in (
+            "ED. BAVIERA",
+            "ED. CENTURY PLAZA I",
+            "ED. GRAND VICTORIA",
+            "ED. VERTICE",
+        ):
+            puesto = _make_puesto(nombre, f"DirecciÃ³n {nombre}")
+            db.session.commit()
+            for tipo in ("12 HORAS", "24 HORAS"):
+                with self.subTest(puesto=nombre, tipo=tipo):
+                    response = self.client.post(
+                        "/turnos",
+                        json=self._valid_payload(
+                            id_puesto=puesto.id_puesto,
+                            tipo_turno=tipo,
+                        ),
+                        headers=self._auth(),
+                    )
+                    self.assertEqual(response.status_code, 201, response.get_json())
+
     def test_invalid_tipo_turno_returns_400(self):
         resp = self.client.post(
             "/turnos",
             json=self._valid_payload(tipo_turno="8 HORAS"),
+            headers=self._auth(),
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("tipo_turno", resp.get_json().get("detalles", {}))
+
+    def test_mixto_is_rejected_for_new_assignments(self):
+        resp = self.client.post(
+            "/turnos",
+            json=self._valid_payload(tipo_turno="MIXTO"),
             headers=self._auth(),
         )
         self.assertEqual(resp.status_code, 400)
@@ -481,7 +601,7 @@ class TurnoValidationTestCase(unittest.TestCase):
         self.assertIn("tipo_asignacion", data)
         self.assertIn("24 HORAS", data["tipo_turno"])
         self.assertIn("12 HORAS", data["tipo_turno"])
-        self.assertIn("MIXTO", data["tipo_turno"])
+        self.assertNotIn("MIXTO", data["tipo_turno"])
         self.assertIn("FIJO", data["tipo_asignacion"])
         self.assertIn("SACA_FRANCO", data["tipo_asignacion"])
 

@@ -61,11 +61,12 @@ class OperacionService {
   Future<SesionOperativa> identifyGuard(
     int deviceId,
     int empleadoId,
+    String tipoTurno,
   ) async {
     final response = await _apiClient.post(
       '/operacion/dispositivos/$deviceId/sesion/identificar',
       headers: _headers(deviceId),
-      body: {'id_empleado': empleadoId},
+      body: {'id_empleado': empleadoId, 'tipo_turno': tipoTurno},
     ) as Map<String, dynamic>;
     return SesionOperativa.fromJson(response['data'] as Map<String, dynamic>);
   }

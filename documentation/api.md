@@ -100,3 +100,11 @@ orden sólo admite campos declarados por el endpoint.
 La API deriva `id_empleado`, `id_turno` e `id_dispositivo` de la sesión en las
 escrituras operativas. Un JSON que no sea objeto devuelve 400. El cliente no
 puede usar esos cuerpos para suplantar a otro empleado.
+# Seleccion operativa de turno
+
+`GET /operacion/dispositivos/<id>/guardias` devuelve una sola entrada por
+empleado e incluye `turnos_disponibles`, con el `id_turno` real de `12 HORAS` y
+`24 HORAS`. La identificacion exige
+`{"id_empleado": <int>, "tipo_turno": "12 HORAS" | "24 HORAS"}`. El servidor
+resuelve el turno correspondiente y no confia en un `id_turno` enviado por el
+cliente. La sesion Redis almacena el turno y la modalidad seleccionada.

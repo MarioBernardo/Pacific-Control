@@ -58,12 +58,12 @@ class OperacionService:
 
     def get_available_guards(self, device_id):
         if self._valid_device(device_id) is None: return None
-        result, seen = [], set()
+        grouped = {}
         for turno in self._valid_turnos(device_id):
             empleado = turno.empleado
-            if empleado.id_empleado in seen or not empleado.estado or empleado.cargo != "GUARDIA": continue
-            seen.add(empleado.id_empleado); result.append(self._serialize_guard(empleado, turno))
-        return result
+            if not empleado.estado or empleado.cargo != "GUARDIA": continue
+            grouped.setdefault(empleado.id_empleado, (empleado, []) )[1].append(turno)
+        return [self._serialize_available_guard(e, turnos) for e, turnos in grouped.values()]
 
     def get_session(self, device_id):
         valid = self._valid_device(device_id)
@@ -76,13 +76,16 @@ class OperacionService:
             cache.delete(_session_key(device_id)); return self._base_session(device, puesto, "expirada")
         return self._base_session(device, puesto, "sin_identificar")
 
-    def identify_guard(self, device_id, empleado_id):
+    def identify_guard(self, device_id, empleado_id, tipo_turno):
         valid = self._valid_device(device_id)
         if valid is None: return None
         device, puesto = valid
         empleado = db.session.get(Empleado, empleado_id)
         if empleado is None or not empleado.estado or empleado.cargo != "GUARDIA": return None
-        turnos = self._valid_turnos(device_id, empleado_id)
+        turnos = [
+            turno for turno in self._valid_turnos(device_id, empleado_id)
+            if turno.tipo_turno == tipo_turno
+        ]
         if not turnos: return None
         turno = turnos[0]
         data = {"dispositivo": self._serialize_device(device, puesto), "guardia_identificado": self._serialize_guard(empleado, turno), "estado": "identificado"}
@@ -113,3 +116,19 @@ class OperacionService:
     def _serialize_device(d, p): return {"id_dispositivo": d.id_dispositivo, "codigo_dispositivo": d.codigo_dispositivo, "modelo": d.modelo, "estado": d.estado, "id_puesto": d.id_puesto, "puesto": {"id_puesto": p.id_puesto, "nombre_puesto": p.nombre_puesto, "direccion": p.direccion, "estado": p.estado} if p else None}
     @staticmethod
     def _serialize_guard(e, t): return {"id_empleado": e.id_empleado, "nombres": e.nombres, "apellidos": e.apellidos, "nombre_completo": f"{e.apellidos} {e.nombres}", "cargo": e.cargo, "tipo_asignacion": t.tipo_asignacion, "tipo_turno": t.tipo_turno, "id_turno": t.id_turno, "id_puesto": t.id_puesto}
+    @staticmethod
+    def _serialize_available_guard(e, turnos):
+        first = turnos[0]
+        return {
+            "id_empleado": e.id_empleado,
+            "nombres": e.nombres,
+            "apellidos": e.apellidos,
+            "nombre_completo": f"{e.apellidos} {e.nombres}",
+            "cargo": e.cargo,
+            "tipo_asignacion": first.tipo_asignacion,
+            "id_puesto": first.id_puesto,
+            "turnos_disponibles": [
+                {"id_turno": turno.id_turno, "tipo_turno": turno.tipo_turno}
+                for turno in sorted(turnos, key=lambda item: (item.tipo_turno, item.id_turno))
+            ],
+        }

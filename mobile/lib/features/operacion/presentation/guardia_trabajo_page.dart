@@ -54,14 +54,14 @@ class GuardiaTrabajoPage extends ConsumerWidget {
   }
 }
 
-class _WorkView extends StatelessWidget {
+class _WorkView extends ConsumerWidget {
   const _WorkView({required this.session, required this.deviceId});
 
   final SesionOperativa session;
   final int deviceId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final guardia = session.guardiaIdentificado!;
     final puesto = session.dispositivo.puesto;
 
@@ -161,7 +161,7 @@ class _WorkView extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
-          onPressed: () => _cambiarGuardia(context),
+          onPressed: () => _cambiarGuardia(context, ref),
           icon: const Icon(Icons.swap_horiz),
           label: const Text('Cambiar guardia'),
         ),
@@ -193,8 +193,17 @@ class _WorkView extends StatelessWidget {
     );
   }
 
-  void _cambiarGuardia(BuildContext context) {
-    context.go('/operacion/$deviceId/guardias');
+  Future<void> _cambiarGuardia(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(deviceSessionProvider(deviceId).notifier).clearSession();
+      if (context.mounted) context.go('/operacion/$deviceId/guardias');
+    } on ApiException catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+    }
   }
 }
 

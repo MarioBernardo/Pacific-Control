@@ -28,10 +28,10 @@ class DeviceSessionController
     return _service.getSession(deviceId);
   }
 
-  Future<void> identifyGuard(int empleadoId) async {
+  Future<void> identifyGuard(int empleadoId, String tipoTurno) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () => _service.identifyGuard(arg, empleadoId),
+      () => _service.identifyGuard(arg, empleadoId, tipoTurno),
     );
   }
 

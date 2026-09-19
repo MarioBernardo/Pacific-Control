@@ -25,6 +25,7 @@ Security guarantees:
 from flask import Blueprint, jsonify, request
 
 from app.services.operacion_service import OperacionService, OperacionAuthorizationError, OperacionUnavailableError
+from app.services.turno_service import VALID_TIPO_TURNO
 from app.services.crud_utils import CrudValidationError, CrudConflictError
 from app.routes.asistencia_routes import _serialize_asistencia
 from app.routes.novedad_routes import _serialize_novedad
@@ -90,7 +91,7 @@ def identify_guard(device_id: int):
     if error: return error
     """Identify the guard operating at a device.
 
-    Body: {"id_empleado": <int>}
+    Body: {"id_empleado": <int>, "tipo_turno": "12 HORAS" | "24 HORAS"}
 
     Validates:
     - device exists
@@ -104,9 +105,12 @@ def identify_guard(device_id: int):
     empleado_id = payload.get("id_empleado")
     if not isinstance(empleado_id, int) or isinstance(empleado_id, bool) or empleado_id <= 0:
         return jsonify({"error": "id_empleado debe ser un entero positivo."}), 400
+    tipo_turno = payload.get("tipo_turno")
+    if tipo_turno not in VALID_TIPO_TURNO:
+        return jsonify({"error": "tipo_turno debe ser 12 HORAS o 24 HORAS."}), 400
 
     try:
-        result = _service.identify_guard(device_id, empleado_id)
+        result = _service.identify_guard(device_id, empleado_id, tipo_turno)
     except OperacionUnavailableError as error:
         return jsonify({"error": str(error)}), 503
 

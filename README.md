@@ -460,3 +460,14 @@ sesión Redis de 12 horas. Ejecute `flask db upgrade` y luego el seed operativo
 para aprovisionar hashes de credenciales y asignaciones vigentes. Las colecciones
 administrativas aceptan `page`, `per_page` (máximo 100), filtros, `search`,
 `sort` y `order=asc|desc` según la lista blanca de cada recurso.
+# Credenciales demo E2E
+
+| Dispositivo | Token demo |
+|---|---|
+| `BAVIERA-01` | `BavieraDemo2026!` |
+| `CENTURY-01` | `CenturyDemo2026!` |
+| `GRAND-VICTORIA-01` | `GrandVictoriaDemo2026!` |
+| `VERTICE-01` | `VerticeDemo2026!` |
+
+Son credenciales exclusivas de desarrollo; PostgreSQL conserva solamente sus
+hashes. Todos los puestos admiten `12 HORAS` y `24 HORAS` por turno.

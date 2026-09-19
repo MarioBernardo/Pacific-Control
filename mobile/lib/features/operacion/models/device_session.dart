@@ -63,8 +63,7 @@ class GuardiaDisponible {
     required this.nombreCompleto,
     required this.cargo,
     required this.tipoAsignacion,
-    required this.tipoTurno,
-    required this.idTurno,
+    required this.turnosDisponibles,
     required this.idPuesto,
   });
 
@@ -74,8 +73,7 @@ class GuardiaDisponible {
   final String nombreCompleto;
   final String cargo;
   final String tipoAsignacion;
-  final String? tipoTurno;
-  final int idTurno;
+  final List<TurnoDisponible> turnosDisponibles;
   final int idPuesto;
 
   bool get esFijo => tipoAsignacion.toUpperCase() == 'FIJO';
@@ -88,9 +86,25 @@ class GuardiaDisponible {
       nombreCompleto: json['nombre_completo'] as String,
       cargo: json['cargo'] as String,
       tipoAsignacion: json['tipo_asignacion'] as String,
-      tipoTurno: json['tipo_turno'] as String?,
-      idTurno: json['id_turno'] as int,
+      turnosDisponibles: (json['turnos_disponibles'] as List<dynamic>)
+          .cast<Map<String, dynamic>>()
+          .map(TurnoDisponible.fromJson)
+          .toList(),
       idPuesto: json['id_puesto'] as int,
+    );
+  }
+}
+
+class TurnoDisponible {
+  const TurnoDisponible({required this.idTurno, required this.tipoTurno});
+
+  final int idTurno;
+  final String tipoTurno;
+
+  factory TurnoDisponible.fromJson(Map<String, dynamic> json) {
+    return TurnoDisponible(
+      idTurno: json['id_turno'] as int,
+      tipoTurno: json['tipo_turno'] as String,
     );
   }
 }
