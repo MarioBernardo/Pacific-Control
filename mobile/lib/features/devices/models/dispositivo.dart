@@ -5,6 +5,7 @@ class Dispositivo {
     required this.modelo,
     required this.estado,
     required this.idPuesto,
+    this.puestoNombre,
   });
 
   final int? idDispositivo;
@@ -12,6 +13,7 @@ class Dispositivo {
   final String? modelo;
   final String estado;
   final int idPuesto;
+  final String? puestoNombre;
 
   factory Dispositivo.fromJson(Map<String, dynamic> json) {
     return Dispositivo(
@@ -20,6 +22,9 @@ class Dispositivo {
       modelo: json['modelo'] as String?,
       estado: json['estado'] as String,
       idPuesto: json['id_puesto'] as int,
+      puestoNombre:
+          (json['puesto'] as Map<String, dynamic>?)?['nombre_puesto']
+              as String?,
     );
   }
 

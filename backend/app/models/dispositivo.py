@@ -18,6 +18,7 @@ class Dispositivo(db.Model):
 
     puesto = relationship("Puesto", back_populates="dispositivos", lazy="select")
     asistencias = relationship("Asistencia", back_populates="dispositivo", lazy="select")
+    novedades = relationship("Novedad", back_populates="dispositivo", lazy="select")
 
     def __repr__(self) -> str:
         return f"<Dispositivo {self.codigo_dispositivo}>"

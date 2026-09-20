@@ -5,7 +5,7 @@ from sqlalchemy import String, cast, or_
 from app.extensions import db
 from app.services.crud_utils import CrudValidationError
 
-def paginated(model, *, filters=None, search_columns=(), sort_fields=None):
+def paginated(model, *, filters=None, search_columns=(), sort_fields=None, options=()):
     args = request.args
     try:
         page = int(args.get("page", 1))
@@ -14,7 +14,7 @@ def paginated(model, *, filters=None, search_columns=(), sort_fields=None):
         raise CrudValidationError({"pagination": "page y per_page deben ser enteros."}) from error
     if page < 1 or per_page < 1 or per_page > 100:
         raise CrudValidationError({"pagination": "page debe ser >= 1 y per_page debe estar entre 1 y 100."})
-    statement = db.select(model)
+    statement = db.select(model).options(*options)
     for parameter, column in (filters or {}).items():
         value = args.get(parameter)
         if value is not None:

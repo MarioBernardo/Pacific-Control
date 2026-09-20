@@ -12,6 +12,9 @@ class AppTextField extends StatelessWidget {
     this.keyboardType,
     this.validator,
     this.onChanged,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
+    this.textInputAction,
   });
 
   final String label;
@@ -23,6 +26,9 @@ class AppTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
+  final bool autocorrect;
+  final bool enableSuggestions;
+  final TextInputAction? textInputAction;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +38,9 @@ class AppTextField extends StatelessWidget {
       keyboardType: keyboardType,
       validator: validator,
       onChanged: onChanged,
+      autocorrect: autocorrect,
+      enableSuggestions: enableSuggestions,
+      textInputAction: textInputAction,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,

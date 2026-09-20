@@ -19,6 +19,10 @@ void main() {
     'id_empleado': 2,
     'id_turno': 3,
     'id_dispositivo': 4,
+    'guardia': {'nombre_completo': 'TIPANTUÑA TACO DIEGO MARCELO'},
+    'puesto': {'nombre_puesto': 'ED. BAVIERA'},
+    'turno': {'tipo_turno': '12 HORAS', 'tipo_asignacion': 'FIJO'},
+    'dispositivo': {'codigo_dispositivo': 'BAVIERA-01'},
   };
   AsistenciaService service(http.Client c) => AsistenciaService(
     AuthenticatedApiClient(
@@ -43,6 +47,10 @@ void main() {
     expect(item.idEmpleado, 2);
     expect(item.idDispositivo, 4);
     expect(item.latitud, '-0.18');
+    expect(item.guardiaNombre, 'TIPANTUÑA TACO DIEGO MARCELO');
+    expect(item.puestoNombre, 'ED. BAVIERA');
+    expect(item.tipoTurno, '12 HORAS');
+    expect(item.fechaHoraLegible, '13/09/2026 · 08:00');
   });
   test('POST PUT PATCH use real payloads', () async {
     final methods = <String>[];

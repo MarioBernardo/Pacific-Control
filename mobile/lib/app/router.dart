@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/attendance/presentation/asistencias_page.dart';
+import '../features/attendance/presentation/guard_activity_page.dart';
+import '../features/attendance/presentation/personnel_on_shift_page.dart';
 import '../features/auth/auth_provider.dart';
 import '../features/auth/presentation/auth_loading_page.dart';
 import '../features/auth/presentation/home_page.dart';
@@ -10,8 +12,6 @@ import '../features/auth/presentation/login_page.dart';
 import '../features/devices/presentation/dispositivos_page.dart';
 import '../features/employees/presentation/empleados_page.dart';
 import '../features/incidents/presentation/novedades_page.dart';
-import '../features/operacion/presentation/dispositivo_info_page.dart';
-import '../features/operacion/presentation/dispositivo_seleccion_page.dart';
 import '../features/operacion/presentation/guardia_lista_page.dart';
 import '../features/operacion/presentation/guardia_trabajo_page.dart';
 import '../features/positions/presentation/puestos_page.dart';
@@ -22,7 +22,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refreshNotifier.dispose);
 
   return GoRouter(
-    initialLocation: '/operacion',
+    initialLocation: '/login',
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final authState = ref.read(authControllerProvider);
@@ -73,19 +73,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AsistenciasPage(),
       ),
       GoRoute(
+        path: '/personal-en-turno',
+        builder: (context, state) => const PersonnelOnShiftPage(),
+      ),
+      GoRoute(
+        path: '/empleados/:employeeId/actividad',
+        builder: (context, state) => GuardActivityPage(
+          employeeId:
+              int.tryParse(state.pathParameters['employeeId'] ?? '') ?? 0,
+        ),
+      ),
+      GoRoute(
         path: '/novedades',
         builder: (context, state) => const NovedadesPage(),
       ),
       // ── Operative flow ──────────────────────────────────────
-      GoRoute(
-        path: '/operacion',
-        builder: (context, state) => const DispositivoSeleccionPage(),
-      ),
+      GoRoute(path: '/operacion', redirect: (context, state) => '/login'),
       GoRoute(
         path: '/operacion/:deviceId',
         builder: (context, state) {
           final id = int.tryParse(state.pathParameters['deviceId'] ?? '') ?? 0;
-          return DispositivoInfoPage(deviceId: id);
+          return GuardiaTrabajoPage(deviceId: id);
         },
       ),
       GoRoute(
@@ -97,10 +105,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/operacion/:deviceId/trabajo',
-        builder: (context, state) {
-          final id = int.tryParse(state.pathParameters['deviceId'] ?? '') ?? 0;
-          return GuardiaTrabajoPage(deviceId: id);
-        },
+        redirect: (context, state) =>
+            '/operacion/${state.pathParameters['deviceId']}',
       ),
     ],
   );

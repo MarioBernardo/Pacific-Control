@@ -27,15 +27,14 @@ class DispositivoInfoPage extends ConsumerWidget {
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await ref.read(operacionServiceProvider).logoutDevice(deviceId);
-              if (context.mounted) context.go('/operacion');
+              if (context.mounted) context.go('/login');
             },
           ),
           IconButton(
             tooltip: 'Actualizar',
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref
-                .read(deviceSessionProvider(deviceId).notifier)
-                .reload(),
+            onPressed: () =>
+                ref.read(deviceSessionProvider(deviceId).notifier).reload(),
           ),
         ],
       ),
@@ -49,8 +48,7 @@ class DispositivoInfoPage extends ConsumerWidget {
         data: (session) => _SessionView(
           session: session,
           deviceId: deviceId,
-          onContinue: () =>
-              context.push('/operacion/$deviceId/guardias'),
+          onContinue: () => context.push('/operacion/$deviceId/guardias'),
           onClearGuard: () =>
               ref.read(deviceSessionProvider(deviceId).notifier).clearSession(),
         ),
@@ -131,10 +129,7 @@ class _SessionView extends StatelessWidget {
         if (puesto != null)
           Card(
             child: ListTile(
-              leading: const Icon(
-                Icons.location_on,
-                color: AppColors.darkBlue,
-              ),
+              leading: const Icon(Icons.location_on, color: AppColors.darkBlue),
               title: Text(
                 puesto.nombrePuesto,
                 style: const TextStyle(fontWeight: FontWeight.w700),
@@ -149,17 +144,12 @@ class _SessionView extends StatelessWidget {
           Card(
             color: Colors.green.shade50,
             child: ListTile(
-              leading: const Icon(
-                Icons.verified_user,
-                color: Colors.green,
-              ),
+              leading: const Icon(Icons.verified_user, color: Colors.green),
               title: Text(
                 session.guardiaIdentificado!.nombreCompleto,
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              subtitle: Text(
-                session.guardiaIdentificado!.tipoAsignacion,
-              ),
+              subtitle: Text(session.guardiaIdentificado!.tipoAsignacion),
               trailing: TextButton(
                 onPressed: onClearGuard,
                 child: const Text('Cambiar'),
@@ -210,9 +200,7 @@ class _OperationRedirect extends StatelessWidget {
         context.push('/operacion/$deviceId/trabajo');
       }
     });
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
 

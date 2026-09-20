@@ -9,6 +9,8 @@ class Turno {
     this.tipoAsignacion = 'FIJO',
     required this.idEmpleado,
     required this.idPuesto,
+    this.empleadoNombre,
+    this.puestoNombre,
   });
 
   final int? idTurno;
@@ -20,6 +22,8 @@ class Turno {
   final String tipoAsignacion;
   final int idEmpleado;
   final int idPuesto;
+  final String? empleadoNombre;
+  final String? puestoNombre;
 
   factory Turno.fromJson(Map<String, dynamic> json) {
     return Turno(
@@ -32,6 +36,12 @@ class Turno {
       tipoAsignacion: json['tipo_asignacion'] as String? ?? 'FIJO',
       idEmpleado: json['id_empleado'] as int,
       idPuesto: json['id_puesto'] as int,
+      empleadoNombre:
+          (json['empleado'] as Map<String, dynamic>?)?['nombre_completo']
+              as String?,
+      puestoNombre:
+          (json['puesto'] as Map<String, dynamic>?)?['nombre_puesto']
+              as String?,
     );
   }
 

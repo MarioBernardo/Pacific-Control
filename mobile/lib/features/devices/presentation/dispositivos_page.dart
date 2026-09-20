@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/authenticated_api_client.dart';
 import '../../../theme/app_colors.dart';
+import '../../../widgets/app_back_button.dart';
 import '../../auth/auth_provider.dart';
 import '../../positions/models/puesto.dart';
 import '../../positions/providers/puestos_provider.dart';
@@ -27,6 +28,7 @@ class DispositivosPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: const Text('Dispositivos'),
         actions: [
           IconButton(
@@ -172,7 +174,7 @@ class _DeviceTile extends StatelessWidget {
         title: Text(dispositivo.codigoDispositivo),
         subtitle: Text(
           '${dispositivo.modelo ?? 'Modelo no indicado'}\n'
-          'Puesto: ${dispositivo.idPuesto} | Estado: ${dispositivo.estado}',
+          'Puesto: ${dispositivo.puestoNombre ?? 'No disponible'} | Estado: ${dispositivo.estado}',
         ),
         isThreeLine: true,
         trailing: canManage

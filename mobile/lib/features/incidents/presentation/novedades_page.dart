@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/authenticated_api_client.dart';
+import '../../../config/app_environment.dart';
+import '../../../widgets/app_back_button.dart';
 import '../../auth/auth_provider.dart';
 import '../../employees/models/empleado.dart';
 import '../../shifts/models/turno.dart';
@@ -14,11 +16,17 @@ class NovedadesPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final data = ref.watch(novedadesProvider);
-    final role = ref.watch(authControllerProvider).session?.employee.position.toUpperCase();
+    final role = ref
+        .watch(authControllerProvider)
+        .session
+        ?.employee
+        .position
+        .toUpperCase();
     final canEdit = {'ADMINISTRADOR', 'SUPERVISOR'}.contains(role);
 
     return Scaffold(
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: const Text('Novedades'),
         actions: [
           IconButton(
@@ -56,6 +64,7 @@ class NovedadesPage extends ConsumerWidget {
                   canEdit: canEdit,
                   onEdit: () => _openForm(context, ref, item),
                   onToggle: () => _toggleStatus(context, ref, item),
+                  onDetail: () => _showDetail(context, ref, item),
                 );
               },
             ),
@@ -72,8 +81,10 @@ class NovedadesPage extends ConsumerWidget {
   ]) async {
     try {
       final session = ref.read(authControllerProvider).session!.employee;
-      final canLoadEmployees = {'ADMINISTRADOR', 'SUPERVISOR'}
-          .contains(session.position.toUpperCase());
+      final canLoadEmployees = {
+        'ADMINISTRADOR',
+        'SUPERVISOR',
+      }.contains(session.position.toUpperCase());
       final employees = canLoadEmployees
           ? await ref.read(empleadosForNovedadProvider.future)
           : [
@@ -92,11 +103,8 @@ class NovedadesPage extends ConsumerWidget {
       if (!context.mounted) return;
       final result = await showDialog<Novedad>(
         context: context,
-        builder: (_) => _NovedadForm(
-          item: item,
-          employees: employees,
-          shifts: shifts,
-        ),
+        builder: (_) =>
+            _NovedadForm(item: item, employees: employees, shifts: shifts),
       );
       if (result == null) return;
       if (item == null) {
@@ -105,9 +113,8 @@ class NovedadesPage extends ConsumerWidget {
         await ref.read(novedadesProvider.notifier).edit(result);
       }
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Novedad guardada.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Novedad guardada.')));
       }
     } on ApiException catch (error) {
       if (context.mounted) _showError(context, error);
@@ -127,8 +134,52 @@ class NovedadesPage extends ConsumerWidget {
   }
 
   void _showError(BuildContext context, ApiException error) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error.message)),
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(error.message)));
+  }
+
+  void _showDetail(BuildContext context, WidgetRef ref, Novedad item) {
+    final token = ref.read(authControllerProvider).session?.accessToken;
+    final base = AppEnvironment.apiBaseUrl.replaceFirst(RegExp(r'/+$'), '');
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Detalle de novedad'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Guardia: ${item.guardiaNombre ?? 'No disponible'}'),
+              Text('Puesto: ${item.puestoNombre ?? 'No disponible'}'),
+              Text('Fecha y hora: ${item.fechaHoraLegible}'),
+              Text('Turno: ${item.tipoTurno ?? 'No disponible'}'),
+              Text('Tipo: ${item.tipo}'),
+              Text('Estado: ${item.estado}'),
+              const SizedBox(height: 10),
+              Text(item.descripcion),
+              const SizedBox(height: 12),
+              if (item.evidenciaFoto == null)
+                const Text('Sin evidencia fotográfica.')
+              else
+                Image.network(
+                  '$base/novedades/${item.idNovedad}/evidencia',
+                  headers: token == null
+                      ? null
+                      : {'Authorization': 'Bearer $token'},
+                  errorBuilder: (_, _, _) =>
+                      const Text('Evidencia fotográfica no disponible.'),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('ATRÁS'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -139,22 +190,25 @@ class _NovedadTile extends StatelessWidget {
     required this.canEdit,
     required this.onEdit,
     required this.onToggle,
+    required this.onDetail,
   });
 
   final Novedad item;
   final bool canEdit;
   final VoidCallback onEdit;
   final VoidCallback onToggle;
+  final VoidCallback onDetail;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        title: Text(item.tipo),
+        title: Text(item.guardiaNombre ?? item.tipo),
         subtitle: Text(
-          '${item.descripcion}\n${item.fechaHora} | Estado: ${item.estado}',
+          '${item.puestoNombre ?? 'Puesto no disponible'} · ${item.tipo}\n${item.fechaHoraLegible} · ${item.estado.toUpperCase()}\n${item.descripcion}',
         ),
         isThreeLine: true,
+        onTap: onDetail,
         trailing: canEdit
             ? PopupMenuButton<String>(
                 onSelected: (value) {
@@ -260,9 +314,8 @@ class _NovedadFormState extends State<_NovedadForm> {
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(labelText: label),
-      validator: (value) => value == null || value.trim().isEmpty
-          ? 'Campo obligatorio'
-          : null,
+      validator: (value) =>
+          value == null || value.trim().isEmpty ? 'Campo obligatorio' : null,
     );
   }
 
@@ -340,10 +393,7 @@ class _ErrorView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(message),
-          OutlinedButton(
-            onPressed: onRetry,
-            child: const Text('Reintentar'),
-          ),
+          OutlinedButton(onPressed: onRetry, child: const Text('Reintentar')),
         ],
       ),
     );

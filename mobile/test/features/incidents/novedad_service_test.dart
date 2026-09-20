@@ -16,6 +16,12 @@ void main() {
     'estado': 'abierta',
     'id_empleado': 2,
     'id_turno': 3,
+    'id_dispositivo': 4,
+    'evidencia_foto': 'uploads/novedades/test.jpg',
+    'guardia': {'nombre_completo': 'TIPANTUÑA TACO DIEGO MARCELO'},
+    'puesto': {'nombre_puesto': 'ED. BAVIERA'},
+    'turno': {'tipo_turno': '12 HORAS', 'tipo_asignacion': 'FIJO'},
+    'dispositivo': {'codigo_dispositivo': 'BAVIERA-01'},
   };
   NovedadService service(http.Client c) => NovedadService(
     AuthenticatedApiClient(
@@ -39,6 +45,9 @@ void main() {
     final item = (await s.getAll()).single;
     expect(item.idEmpleado, 2);
     expect(item.idTurno, 3);
+    expect(item.guardiaNombre, 'TIPANTUÑA TACO DIEGO MARCELO');
+    expect(item.puestoNombre, 'ED. BAVIERA');
+    expect(item.evidenciaFoto, isNotNull);
   });
   test('POST PUT PATCH use real payloads', () async {
     final methods = <String>[];

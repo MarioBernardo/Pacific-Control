@@ -9,10 +9,10 @@ import '../../../theme/app_colors.dart';
 import '../models/device_session.dart';
 import '../providers/operacion_provider.dart';
 import '../services/operacion_service.dart';
-import '../services/native_capabilities.dart';
 import '../services/attendance_location_controller.dart';
+import '../services/camera_evidence_controller.dart';
 
-/// Main operative screen shown after a guard identifies themselves.
+/// Operative home for a device, with or without an identified guard.
 class GuardiaTrabajoPage extends ConsumerWidget {
   const GuardiaTrabajoPage({super.key, required this.deviceId});
 
@@ -24,8 +24,43 @@ class GuardiaTrabajoPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Operación'),
+        title: const Text('Inicio operativo'),
+        leading: IconButton(
+          tooltip: 'Inicio operativo',
+          icon: const Icon(Icons.home_outlined),
+          onPressed: () => context.go('/operacion/$deviceId'),
+        ),
         actions: [
+          IconButton(
+            tooltip: 'Cerrar sesión del dispositivo',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              final close =
+                  await showDialog<bool>(
+                    context: context,
+                    builder: (dialogContext) => AlertDialog(
+                      title: const Text('¿Cerrar sesión del dispositivo?'),
+                      content: const Text(
+                        'Se cerrará la sesión operativa y volverás a la portada de Pacific Control.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(dialogContext, false),
+                          child: const Text('CANCELAR'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.pop(dialogContext, true),
+                          child: const Text('CERRAR SESIÓN'),
+                        ),
+                      ],
+                    ),
+                  ) ??
+                  false;
+              if (!close || !context.mounted) return;
+              await ref.read(operacionServiceProvider).logoutDevice(deviceId);
+              if (context.mounted) context.go('/login');
+            },
+          ),
           IconButton(
             tooltip: 'Actualizar',
             icon: const Icon(Icons.refresh),
@@ -41,19 +76,58 @@ class GuardiaTrabajoPage extends ConsumerWidget {
           onRetry: () =>
               ref.read(deviceSessionProvider(deviceId).notifier).reload(),
         ),
-        data: (session) {
-          if (!session.identificado) {
-            // Guard was cleared — send back to guard list
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (context.mounted) {
-                context.go('/operacion/$deviceId/guardias');
-              }
-            });
-            return const Center(child: CircularProgressIndicator());
-          }
-          return _WorkView(session: session, deviceId: deviceId);
-        },
+        data: (session) => session.identificado
+            ? _WorkView(session: session, deviceId: deviceId)
+            : _NoGuardView(session: session, deviceId: deviceId),
       ),
+    );
+  }
+}
+
+class _NoGuardView extends StatelessWidget {
+  const _NoGuardView({required this.session, required this.deviceId});
+
+  final SesionOperativa session;
+  final int deviceId;
+
+  @override
+  Widget build(BuildContext context) {
+    final dispositivo = session.dispositivo;
+    final puesto = dispositivo.puesto;
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text(
+          puesto?.nombrePuesto ?? 'Puesto operativo',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          dispositivo.codigoDispositivo,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.phone_android, color: AppColors.darkBlue),
+            title: const Text('Dispositivo activo'),
+            subtitle: Text(dispositivo.estado),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Card(
+          child: ListTile(
+            leading: Icon(Icons.person_off_outlined),
+            title: Text('Ningún guardia identificado.'),
+          ),
+        ),
+        const SizedBox(height: 24),
+        FilledButton.icon(
+          onPressed: () => context.go('/operacion/$deviceId/guardias'),
+          icon: const Icon(Icons.people),
+          label: const Text('SELECCIONAR GUARDIA'),
+        ),
+      ],
     );
   }
 }
@@ -156,12 +230,20 @@ class _WorkView extends ConsumerWidget {
           icon: const Icon(Icons.fact_check),
           label: const Text('Registrar asistencia'),
         ),
+        const Padding(
+          padding: EdgeInsets.only(top: 6),
+          child: Text('La ubicación se solicitará al registrar asistencia.'),
+        ),
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: () => _reportarNovedad(context, session),
           icon: const Icon(Icons.add_alert),
           label: const Text('Reportar novedad'),
           style: FilledButton.styleFrom(backgroundColor: AppColors.orange),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 6),
+          child: Text('La cámara se usará solo si decides adjuntar una foto.'),
         ),
         const SizedBox(height: 12),
         OutlinedButton.icon(
@@ -241,18 +323,18 @@ class _AsistenciaDialogState extends ConsumerState<_AsistenciaDialog> {
     final proceed =
         await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
+          builder: (dialogContext) => AlertDialog(
             title: const Text('Ubicación para la asistencia'),
             content: const Text(
               'Pacific Control necesita acceder a tu ubicación para registrar el lugar desde donde se realiza la asistencia.',
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: const Text('CANCELAR'),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: const Text('CONTINUAR'),
               ),
             ],
@@ -410,7 +492,7 @@ class _AsistenciaDialogState extends ConsumerState<_AsistenciaDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cerrar'),
+          child: const Text('ATRÁS'),
         ),
         if (!_success)
           FilledButton(
@@ -449,22 +531,25 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
   String? _result;
   bool _success = false;
   String? _photoPath;
+  bool _capturing = false;
 
   Future<void> _takePhoto() async {
+    if (_capturing) return;
     final proceed =
         await showDialog<bool>(
           context: context,
-          builder: (_) => AlertDialog(
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Evidencia fotográfica'),
             content: const Text(
               'Pacific Control utiliza la cámara para adjuntar evidencia fotográfica a la novedad.',
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: const Text('CANCELAR'),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(context, true),
+                onPressed: () => Navigator.pop(dialogContext, true),
                 child: const Text('CONTINUAR'),
               ),
             ],
@@ -473,56 +558,79 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
         false;
     if (!proceed || !mounted) return;
     final native = ref.read(nativeCapabilitiesProvider);
-    final permission = await native.requestCameraPermission();
-    if (permission == NativePermissionState.permanentlyDenied) {
-      if (!mounted) return;
-      final settings =
-          await showDialog<bool>(
-            context: context,
-            builder: (_) => AlertDialog(
-              content: const Text(
-                'El permiso de cámara está desactivado para Pacific Control. Puedes activarlo desde los ajustes del dispositivo. La novedad puede continuar sin foto.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('CONTINUAR SIN FOTO'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: const Text('ABRIR AJUSTES'),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-      if (settings) await native.openSettings();
-      return;
+    setState(() {
+      _capturing = true;
+      _result = null;
+    });
+    late final CameraEvidenceOutcome outcome;
+    try {
+      outcome = await CameraEvidenceController(native: native).capture();
+    } finally {
+      if (mounted) setState(() => _capturing = false);
     }
-    if (permission != NativePermissionState.granted) {
-      if (mounted) {
+    if (!mounted) return;
+    switch (outcome.status) {
+      case CameraEvidenceStatus.captured:
+        setState(() {
+          _photoPath = outcome.path;
+          _result = null;
+        });
+        return;
+      case CameraEvidenceStatus.denied:
         setState(
           () => _result =
               'Permiso denegado. La novedad puede enviarse sin fotografía.',
         );
-      }
-      return;
-    }
-    try {
-      final path = await native.takePhoto();
-      if (path != null && mounted) {
-        setState(() {
-          _photoPath = path;
-          _result = null;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
+        return;
+      case CameraEvidenceStatus.permanentlyDenied:
+        final settings =
+            await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                content: const Text(
+                  'El permiso de cámara está desactivado para Pacific Control. Puedes activarlo desde los ajustes del dispositivo. La novedad puede continuar sin foto.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('CONTINUAR SIN FOTO'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('ABRIR AJUSTES'),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (settings) await native.openSettings();
+        return;
+      case CameraEvidenceStatus.cancelled:
+        setState(
+          () => _result =
+              'Captura cancelada. Puedes continuar registrando sin foto.',
+        );
+        return;
+      case CameraEvidenceStatus.error:
         setState(
           () => _result =
               'La cámara no está disponible. Puedes continuar sin foto.',
         );
-      }
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            content: const Text(
+              'No fue posible abrir la cámara. Puedes continuar registrando la novedad sin fotografía.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('ENTENDIDO'),
+              ),
+            ],
+          ),
+        );
+        return;
     }
   }
 
@@ -555,15 +663,17 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
           );
       if (!mounted) return;
       setState(() {
-        _loading = false;
         _success = true;
         _result = 'Novedad reportada correctamente.';
       });
     } on ApiException catch (e) {
-      setState(() {
-        _loading = false;
-        _result = e.message;
-      });
+      if (mounted) setState(() => _result = e.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _result = 'No fue posible registrar la novedad.');
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -593,31 +703,62 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
             const SizedBox(height: 12),
             if (_photoPath == null) ...[
               OutlinedButton.icon(
-                onPressed: _loading || _success ? null : _takePhoto,
-                icon: const Icon(Icons.camera_alt),
-                label: const Text('TOMAR FOTOGRAFÍA'),
+                onPressed: _loading || _success || _capturing
+                    ? null
+                    : _takePhoto,
+                icon: _capturing
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.camera_alt),
+                label: Text(
+                  _capturing ? 'ABRIENDO CÁMARA…' : 'TOMAR FOTOGRAFÍA',
+                ),
               ),
               const Text('Novedad sin evidencia fotográfica.'),
             ] else ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  File(_photoPath!),
-                  height: 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+              SizedBox(
+                width: 360,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    File(_photoPath!),
+                    height: 160,
+                    width: 360,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox(
+                      height: 160,
+                      child: Center(
+                        child: Text('No fue posible mostrar la fotografía.'),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               Wrap(
                 spacing: 8,
                 children: [
                   TextButton(
-                    onPressed: _takePhoto,
-                    child: const Text('REPETIR FOTO'),
+                    onPressed: _capturing
+                        ? null
+                        : () => setState(
+                            () => _result = 'Fotografía lista para enviar.',
+                          ),
+                    child: const Text('USAR FOTO'),
                   ),
                   TextButton(
-                    onPressed: () => setState(() => _photoPath = null),
-                    child: const Text('QUITAR FOTO'),
+                    onPressed: _capturing ? null : _takePhoto,
+                    child: const Text('REPETIR'),
+                  ),
+                  TextButton(
+                    onPressed: _capturing
+                        ? null
+                        : () => setState(() {
+                            _photoPath = null;
+                            _result = null;
+                          }),
+                    child: const Text('ELIMINAR'),
                   ),
                 ],
               ),
@@ -645,7 +786,7 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cerrar'),
+          child: const Text('ATRÁS'),
         ),
         if (!_success)
           FilledButton(

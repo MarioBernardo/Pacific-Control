@@ -19,6 +19,7 @@ class Novedad(db.Model):
 
     empleado = relationship("Empleado", back_populates="novedades", lazy="select")
     turno = relationship("Turno", back_populates="novedades", lazy="select")
+    dispositivo = relationship("Dispositivo", back_populates="novedades", lazy="select")
 
     def __repr__(self) -> str:
         return f"<Novedad {self.id_novedad}>"

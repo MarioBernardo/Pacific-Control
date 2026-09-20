@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../theme/app_colors.dart';
 import '../../../widgets/brand_logo.dart';
 import '../../backend_status/backend_status_page.dart';
+import '../../attendance/providers/administrative_reports_provider.dart';
+import '../../attendance/models/administrative_reports.dart';
 import '../auth_provider.dart';
 import '../services/auth_session.dart';
 
@@ -62,17 +64,19 @@ class HomePage extends ConsumerWidget {
 
             // Session card
             _StatusCard(session: session),
+            if (canManage) ...[
+              const SizedBox(height: 18),
+              _AdministrativeOverview(
+                state: ref.watch(administrativeDashboardProvider),
+                onRetry: () => ref.invalidate(administrativeDashboardProvider),
+                onViewAll: () => context.push('/personal-en-turno'),
+              ),
+            ],
             const SizedBox(height: 24),
 
             // ── Operación ──────────────────────────────────
             Text('Operación', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 10),
-            FilledButton.icon(
-              onPressed: () => context.push('/operacion'),
-              icon: const Icon(Icons.security),
-              label: const Text('Operación de dispositivo'),
-            ),
-            const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: () => context.push('/asistencias'),
               icon: const Icon(Icons.fact_check),
@@ -142,6 +146,81 @@ class HomePage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _AdministrativeOverview extends StatelessWidget {
+  const _AdministrativeOverview({
+    required this.state,
+    required this.onRetry,
+    required this.onViewAll,
+  });
+
+  final AsyncValue<AdministrativeDashboard> state;
+  final VoidCallback onRetry;
+  final VoidCallback onViewAll;
+
+  @override
+  Widget build(BuildContext context) => state.when(
+    loading: () => const Card(
+      child: Padding(
+        padding: EdgeInsets.all(20),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+    ),
+    error: (_, _) => Card(
+      child: ListTile(
+        title: const Text('No se pudo cargar el resumen operativo.'),
+        trailing: TextButton(
+          onPressed: onRetry,
+          child: const Text('Reintentar'),
+        ),
+      ),
+    ),
+    data: (dashboard) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Resumen operativo',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 18,
+                runSpacing: 8,
+                children: [
+                  Text('Guardias en turno: ${dashboard.guardsOnShift}'),
+                  Text('Asistencias hoy: ${dashboard.attendancesToday}'),
+                  Text('Novedades abiertas: ${dashboard.openIncidents}'),
+                  Text('Puestos cubiertos: ${dashboard.staffedPositions}'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'PERSONAL EN TURNO',
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              if (dashboard.personnel.isEmpty)
+                const Text('No hay personal en turno en este momento.')
+              else
+                for (final item in dashboard.personnel)
+                  Text('${item.guard} · ${item.position} · ${item.shiftType}'),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: onViewAll,
+                  child: const Text('VER TODOS'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _StatusCard extends StatelessWidget {

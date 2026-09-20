@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../services/authenticated_api_client.dart';
 import '../../../theme/app_colors.dart';
+import '../../../widgets/app_back_button.dart';
 import '../../auth/auth_provider.dart';
 import '../../devices/models/dispositivo.dart';
 import '../../employees/models/empleado.dart';
@@ -24,6 +25,7 @@ class AsistenciasPage extends ConsumerWidget {
     final canEdit = {'ADMINISTRADOR', 'SUPERVISOR'}.contains(role);
     return Scaffold(
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: const Text('Asistencias'),
         actions: [
           IconButton(
@@ -56,11 +58,14 @@ class AsistenciasPage extends ConsumerWidget {
                         Icons.fact_check,
                         color: AppColors.darkBlue,
                       ),
-                      title: Text(items[i].fechaHora),
+                      title: Text(
+                        items[i].guardiaNombre ?? 'Guardia no disponible',
+                      ),
                       subtitle: Text(
-                        'Empleado: ${items[i].idEmpleado} | Turno: ${items[i].idTurno}\nEstado: ${items[i].estado}',
+                        '${items[i].puestoNombre ?? 'Puesto no disponible'} · ${items[i].tipoTurno ?? 'Turno no disponible'}\n${items[i].fechaHoraLegible} · ${items[i].estado.toUpperCase()}',
                       ),
                       isThreeLine: true,
+                      onTap: () => _showDetail(context, items[i]),
                       trailing: canEdit
                           ? PopupMenuButton<String>(
                               onSelected: (v) => v == 'edit'
@@ -157,6 +162,56 @@ class AsistenciasPage extends ConsumerWidget {
 
   void _show(BuildContext c, ApiException e) =>
       ScaffoldMessenger.of(c).showSnackBar(SnackBar(content: Text(e.message)));
+
+  void _showDetail(BuildContext context, Asistencia item) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Detalle de asistencia'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _detail('Guardia', item.guardiaNombre ?? 'No disponible'),
+              _detail('Puesto', item.puestoNombre ?? 'No disponible'),
+              _detail('Fecha y hora', item.fechaHoraLegible),
+              _detail('Turno', item.tipoTurno ?? 'No disponible'),
+              _detail(
+                'Tipo de asignación',
+                item.tipoAsignacion ?? 'No disponible',
+              ),
+              _detail('Estado', item.estado),
+              _detail('Dispositivo', item.dispositivoCodigo ?? 'No disponible'),
+              _detail(
+                'Ubicación',
+                item.latitud.isEmpty || item.longitud.isEmpty
+                    ? 'Ubicación no disponible'
+                    : '${item.latitud}, ${item.longitud}',
+              ),
+              _detail(
+                'Observación',
+                item.observacion?.trim().isNotEmpty == true
+                    ? item.observacion!
+                    : 'Sin observaciones',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('ATRÁS'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detail(String label, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Text('$label: $value'),
+  );
 }
 
 class _Form extends StatefulWidget {

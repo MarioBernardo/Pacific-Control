@@ -40,6 +40,15 @@ class AttendanceLocationController {
 
     loading = true;
     try {
+      final gpsEnabled = await native.isLocationServiceEnabled().timeout(
+        operationTimeout,
+      );
+      if (!gpsEnabled) {
+        return const AttendanceLocationOutcome(
+          AttendanceLocationStatus.gpsDisabled,
+        );
+      }
+
       final permission = await native.requestLocationPermission().timeout(
         operationTimeout,
       );
@@ -50,15 +59,6 @@ class AttendanceLocationController {
       }
       if (permission != NativePermissionState.granted) {
         return const AttendanceLocationOutcome(AttendanceLocationStatus.denied);
-      }
-
-      final gpsEnabled = await native.isLocationServiceEnabled().timeout(
-        operationTimeout,
-      );
-      if (!gpsEnabled) {
-        return const AttendanceLocationOutcome(
-          AttendanceLocationStatus.gpsDisabled,
-        );
       }
 
       final location = await native.currentLocation().timeout(positionTimeout);

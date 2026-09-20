@@ -10,6 +10,7 @@ import '../attendance/providers/asistencias_provider.dart';
 import '../devices/providers/dispositivos_provider.dart';
 import '../employees/providers/empleados_provider.dart';
 import '../incidents/providers/novedades_provider.dart';
+import '../operacion/services/operacion_service.dart';
 import '../positions/providers/puestos_provider.dart';
 import '../shifts/providers/turnos_provider.dart';
 
@@ -60,6 +61,9 @@ class AuthController extends Notifier<AuthState> {
   Future<void> restoreSession() async {
     try {
       final session = await ref.read(authServiceProvider).restoreSession();
+      if (session != null) {
+        await ref.read(operacionServiceProvider).clearLocalSession();
+      }
       state = session == null
           ? const AuthState.unauthenticated()
           : AuthState.authenticated(session);
@@ -73,6 +77,7 @@ class AuthController extends Notifier<AuthState> {
     final session = await ref
         .read(authServiceProvider)
         .login(email: email, password: password);
+    await ref.read(operacionServiceProvider).clearLocalSession();
     state = AuthState.authenticated(session);
   }
 

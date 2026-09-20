@@ -2,13 +2,13 @@
 
 ## Objetivo y alcance
 
-Pacific Control incorpora un acceso operativo por puesto/dispositivo, geolocalización puntual al registrar asistencia y una fotografía opcional al reportar novedades. El acceso administrativo JWT no fue modificado. No existe seguimiento en segundo plano, galería, video ni múltiples fotos.
+Pacific Control inicia en una única portada institucional. Desde el campo Usuario determina el tipo de cuenta y dirige al flujo administrativo JWT o al acceso operativo por puesto/dispositivo. La geolocalización puntual al registrar asistencia y la fotografía opcional al reportar novedades se conservan. No existe seguimiento en segundo plano, galería, video ni múltiples fotos.
 
 ## Flujo operativo
 
-1. El dispositivo inicia sesión con usuario y contraseña del puesto.
+1. En la portada institucional, el dispositivo inicia sesión con usuario y contraseña del puesto y entra al Inicio Operativo.
 2. El backend valida el hash y emite un token opaco de vinculación, almacenado en `flutter_secure_storage`.
-3. Se selecciona un guardia asignado al puesto y un turno `12 HORAS` o `24 HORAS`.
+3. El Inicio Operativo muestra puesto, dispositivo, estado y guardia actual. Desde allí se selecciona un guardia asignado al puesto y un turno `12 HORAS` o `24 HORAS`.
 4. `Cambiar guardia` elimina solamente la identificación temporal en Redis.
 5. `Cerrar sesión del dispositivo` invalida el vínculo backend, limpia guardia y almacenamiento seguro local.
 
@@ -50,7 +50,9 @@ No se declara ubicación en segundo plano ni permisos de almacenamiento/galería
 - `NSLocationWhenInUseUsageDescription`: "Pacific Control usa tu ubicación al registrar la asistencia para conservar evidencia del lugar de marcación."
 - `NSCameraUsageDescription`: "Pacific Control utiliza la cámara para adjuntar evidencia fotográfica a las novedades."
 
-La ubicación se pide solo al confirmar `Registrar`; la cámara solo al pulsar `Tomar fotografía`. Ambos flujos muestran primero una explicación con Continuar/Cancelar.
+La ubicación se pide solo al confirmar `Registrar`; la cámara solo al pulsar `Tomar fotografía`. Ambos flujos muestran primero una explicación con Continuar/Cancelar. Un permiso no solicitado pasa por la solicitud nativa; concedido continúa; denegado informa y permite reintentar; permanentemente denegado ofrece `ABRIR AJUSTES`.
+
+La asistencia comprueba primero que el servicio GPS esté activo, después resuelve el permiso y finalmente solicita una posición puntual. `getCurrentPosition` y el controlador aplican un timeout de 15 segundos. Todos los resultados restauran el loading mediante `finally`; nunca se envía la asistencia sin coordenadas reales.
 
 ## Degradación
 
@@ -88,6 +90,10 @@ La configuración hereda del Flutter SDK instalado: `compileSdk 36`, `targetSdk 
 | 4. Cámara concedida | Nueva novedad; tomar foto; aceptar; enviar. | Preview y novedad multipart relacionada al turno/dispositivo. | PENDIENTE EN DISPOSITIVO | Foto, respuesta y DB |
 | 5. Cámara denegada | Denegar o desactivar; continuar sin foto; enviar. | No falla; ofrece ajustes si permanente; novedad 201 sin foto. | PENDIENTE EN DISPOSITIVO | Video/respuesta |
 | 6. GPS apagado | Permiso concedido, servicio apagado; Registrar. | Mensaje específico y acción Abrir ubicación. | PENDIENTE EN DISPOSITIVO | Captura |
+| 7. Timeout de ubicación | Emulador sin posición o proveedor sin respuesta. | Loading termina, mensaje claro, sin asistencia y reintento disponible. | CUBIERTO AUTOMÁTICAMENTE / PENDIENTE EN DISPOSITIVO | Captura/video |
+| 8. Cámara cancelada | Abrir cámara y cancelar. | Conserva formulario y permite enviar sin foto. | CUBIERTO AUTOMÁTICAMENTE / PENDIENTE EN DISPOSITIVO | Captura |
+| 9. Cámara permanente | Desactivar permiso en ajustes; Tomar fotografía. | Ofrece Abrir ajustes o continuar sin foto. | CUBIERTO AUTOMÁTICAMENTE / PENDIENTE EN DISPOSITIVO | Video ajustes |
+| 10. Navegación operativa | Inicio sin guardia; seleccionar; volver; identificar; cambiar guardia. | La sesión BAVIERA-01 permanece activa. | CUBIERTO AUTOMÁTICAMENTE / PENDIENTE EN DISPOSITIVO | Video de recorrido |
 
 ## Prueba en Android físico
 
@@ -97,7 +103,7 @@ La configuración hereda del Flutter SDK instalado: `compileSdk 36`, `targetSdk 
 4. Iniciar Flask escuchando en la LAN, por ejemplo desde `backend`: `..\venv\Scripts\python.exe -m flask run --host=0.0.0.0 --port=5000`.
 5. Sin inventar la IP, ejecutar: `flutter run -d <DEVICE_ID> --dart-define=API_BASE_URL=http://<IPV4_DEL_PC>:5000`.
 6. Si Windows pregunta, permitir Python/puerto 5000 solo en red privada; no se modifica el firewall automáticamente.
-7. Probar `baviera`, Diego, 12 h, asistencia, novedad con foto, Cambiar guardia y Humberto. Confirmar que no reaparece el login.
+7. Probar `baviera`, Inicio Operativo sin guardia, Diego, 12 h, asistencia, novedad con foto, Cambiar guardia y Humberto. Confirmar que no reaparece el login.
 
 ### Ubicación en el emulador Android
 
@@ -105,7 +111,20 @@ El emulador no debe recibir coordenadas falsas desde Pacific Control. Para sumin
 
 ## Evidencias y video
 
-Grabar en orden: login Baviera; puesto/dispositivo; Diego; selector 12/24; ubicación concedida; denegada; permanente y ajustes; cámara; preview/envío; denegación y envío sin foto; persistencia backend; cambio a Humberto sin login. Adjuntar capturas a esta sección tras la prueba física.
+### Espacios para evidencias reales
+
+- **E1:** portada y login `baviera`.
+- **E2:** Inicio Operativo con ED. BAVIERA / BAVIERA-01 y sin guardia.
+- **E3:** listas FIJOS y SACA FRANCOS, selector 12/24 y guardia identificado.
+- **E4:** ubicación concedida y registro persistido con latitud/longitud.
+- **E5:** ubicación denegada, permanente con ajustes, GPS apagado y timeout/reintento.
+- **E6:** cámara concedida, preview, repetir/quitar y novedad con foto persistida.
+- **E7:** cámara denegada/permanente/cancelada y novedad sin foto persistida.
+- **E8:** Cambiar guardia conserva BAVIERA-01; Cerrar dispositivo vuelve a portada.
+
+### Guión breve del video
+
+Grabar en orden: login Baviera; Inicio Operativo; seleccionar Diego y alternar selector 12/24; identificarlo; ubicación concedida y asistencia; denegada, permanente y ajustes; GPS apagado; cámara, preview y envío; denegación y envío sin foto; persistencia backend; cambio a Humberto sin login; cierre del dispositivo y regreso a portada. Insertar E1–E8 tras la prueba física, sin marcar como ejecutado ningún caso pendiente.
 
 Repositorio: https://github.com/MarioBernardo/Pacific-Control
 

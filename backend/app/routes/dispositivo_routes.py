@@ -4,6 +4,7 @@ from app.models.dispositivo import Dispositivo
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.dispositivo_service import DispositivoService
 from app.services.query_service import paginated
+from sqlalchemy.orm import joinedload
 
 
 dispositivos_bp = Blueprint("dispositivos", __name__, url_prefix="/dispositivos")
@@ -11,7 +12,7 @@ dispositivo_service = DispositivoService()
 
 
 def _serialize_dispositivo(dispositivo: Dispositivo) -> dict:
-    return {"id_dispositivo": dispositivo.id_dispositivo, "codigo_dispositivo": dispositivo.codigo_dispositivo, "modelo": dispositivo.modelo, "estado": dispositivo.estado, "id_puesto": dispositivo.id_puesto}
+    return {"id_dispositivo": dispositivo.id_dispositivo, "codigo_dispositivo": dispositivo.codigo_dispositivo, "modelo": dispositivo.modelo, "estado": dispositivo.estado, "id_puesto": dispositivo.id_puesto, "puesto": {"id_puesto": dispositivo.puesto.id_puesto, "nombre_puesto": dispositivo.puesto.nombre_puesto}}
 
 
 def _payload():
@@ -36,7 +37,7 @@ def create_dispositivo():
 @dispositivos_bp.get("")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def list_dispositivos():
-    try: items, meta = paginated(Dispositivo, filters={"estado": Dispositivo.estado, "id_puesto": Dispositivo.id_puesto}, search_columns=(Dispositivo.codigo_dispositivo,), sort_fields={"id_dispositivo": Dispositivo.id_dispositivo, "codigo_dispositivo": Dispositivo.codigo_dispositivo})
+    try: items, meta = paginated(Dispositivo, filters={"estado": Dispositivo.estado, "id_puesto": Dispositivo.id_puesto}, search_columns=(Dispositivo.codigo_dispositivo,), sort_fields={"id_dispositivo": Dispositivo.id_dispositivo, "codigo_dispositivo": Dispositivo.codigo_dispositivo}, options=(joinedload(Dispositivo.puesto),))
     except CrudValidationError as error: return jsonify({"error": str(error), "detalles": error.errors}), 400
     return jsonify({"data": [_serialize_dispositivo(item) for item in items], "meta": meta}), 200
 

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../services/authenticated_api_client.dart';
 import '../../../theme/app_colors.dart';
+import '../../../widgets/app_back_button.dart';
 import '../../auth/auth_provider.dart';
 import '../models/puesto.dart';
 import '../providers/puestos_provider.dart';
@@ -26,6 +27,7 @@ class PuestosPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: const Text('Puestos'),
         actions: [
           IconButton(

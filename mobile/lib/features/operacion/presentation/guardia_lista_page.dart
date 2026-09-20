@@ -21,6 +21,11 @@ class GuardiaListaPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Seleccionar guardia'),
+        leading: IconButton(
+          tooltip: 'Volver al inicio operativo',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/operacion/$deviceId'),
+        ),
         actions: [
           IconButton(
             tooltip: 'Actualizar',
@@ -106,13 +111,12 @@ class GuardiaListaPage extends ConsumerWidget {
           .read(deviceSessionProvider(deviceId).notifier)
           .identifyGuard(guardia.idEmpleado, tipoTurno);
       if (context.mounted) {
-        context.go('/operacion/$deviceId/trabajo');
+        context.go('/operacion/$deviceId');
       }
     } on ApiException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     }
   }
@@ -161,11 +165,11 @@ class _GuardiaCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor:
-              esFijo ? AppColors.orangeSurface : Colors.blue.shade50,
+          backgroundColor: esFijo
+              ? AppColors.orangeSurface
+              : Colors.blue.shade50,
           child: Icon(
             esFijo ? Icons.shield : Icons.swap_horiz,
             color: esFijo ? AppColors.darkBlue : AppColors.orange,

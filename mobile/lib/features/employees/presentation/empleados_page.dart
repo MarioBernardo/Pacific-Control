@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../services/authenticated_api_client.dart';
 import '../../../theme/app_colors.dart';
+import '../../../widgets/app_back_button.dart';
 import '../../auth/auth_provider.dart';
 import '../models/empleado.dart';
 import '../providers/empleados_provider.dart';
@@ -24,6 +26,7 @@ class EmpleadosPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const AppBackButton(),
         title: const Text('Empleados'),
         actions: [
           IconButton(
@@ -58,6 +61,9 @@ class EmpleadosPage extends ConsumerWidget {
                     canManage: canManage,
                     onEdit: () => _openForm(context, ref, items[index]),
                     onToggle: () => _toggleStatus(context, ref, items[index]),
+                    onActivity: () => context.push(
+                      '/empleados/${items[index].idEmpleado}/actividad',
+                    ),
                   ),
                 ),
               ),
@@ -124,12 +130,14 @@ class _EmpleadoTile extends StatelessWidget {
     required this.canManage,
     required this.onEdit,
     required this.onToggle,
+    required this.onActivity,
   });
 
   final Empleado empleado;
   final bool canManage;
   final VoidCallback onEdit;
   final VoidCallback onToggle;
+  final VoidCallback onActivity;
 
   @override
   Widget build(BuildContext context) {
@@ -154,9 +162,18 @@ class _EmpleadoTile extends StatelessWidget {
         isThreeLine: true,
         trailing: canManage
             ? PopupMenuButton<String>(
-                onSelected: (value) => value == 'edit' ? onEdit() : onToggle(),
+                onSelected: (value) {
+                  if (value == 'edit') return onEdit();
+                  if (value == 'activity') return onActivity();
+                  onToggle();
+                },
                 itemBuilder: (_) => [
                   const PopupMenuItem(value: 'edit', child: Text('Editar')),
+                  if (empleado.cargo.toUpperCase() == 'GUARDIA')
+                    const PopupMenuItem(
+                      value: 'activity',
+                      child: Text('Ver actividad'),
+                    ),
                   PopupMenuItem(
                     value: 'status',
                     child: Text(active ? 'Desactivar' : 'Activar'),

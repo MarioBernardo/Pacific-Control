@@ -10,9 +10,13 @@ class _FakeNativeCapabilities implements NativeCapabilities {
   LocationResult location = const LocationResult(-0.1807, -78.4678);
   Object? locationError;
   bool locationNeverCompletes = false;
+  int locationPermissionRequests = 0;
 
   @override
-  Future<NativePermissionState> requestLocationPermission() async => permission;
+  Future<NativePermissionState> requestLocationPermission() async {
+    locationPermissionRequests++;
+    return permission;
+  }
 
   @override
   Future<bool> isLocationServiceEnabled() async => gpsEnabled;
@@ -98,6 +102,7 @@ void main() {
 
     expect(outcome.status, AttendanceLocationStatus.gpsDisabled);
     expect(registrations, 0);
+    expect(native.locationPermissionRequests, 0);
     expect(subject.loading, isFalse);
   });
 

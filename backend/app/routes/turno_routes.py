@@ -4,6 +4,7 @@ from app.models.turno import Turno
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.turno_service import TurnoService, VALID_TIPO_TURNO, VALID_TIPO_ASIGNACION
 from app.services.query_service import paginated
+from sqlalchemy.orm import joinedload
 
 
 turnos_bp = Blueprint("turnos", __name__, url_prefix="/turnos")
@@ -21,6 +22,14 @@ def _serialize_turno(turno: Turno) -> dict:
         "tipo_asignacion": turno.tipo_asignacion,
         "id_empleado": turno.id_empleado,
         "id_puesto": turno.id_puesto,
+        "empleado": {
+            "id_empleado": turno.empleado.id_empleado,
+            "nombre_completo": f"{turno.empleado.nombres} {turno.empleado.apellidos}",
+        },
+        "puesto": {
+            "id_puesto": turno.puesto.id_puesto,
+            "nombre_puesto": turno.puesto.nombre_puesto,
+        },
     }
 
 
@@ -46,7 +55,7 @@ def create_turno():
 @turnos_bp.get("")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def list_turnos():
-    try: items, meta = paginated(Turno, filters={"estado": Turno.estado, "id_empleado": Turno.id_empleado, "id_puesto": Turno.id_puesto, "fecha": Turno.fecha, "tipo_turno": Turno.tipo_turno, "tipo_asignacion": Turno.tipo_asignacion}, sort_fields={"id_turno": Turno.id_turno, "fecha": Turno.fecha})
+    try: items, meta = paginated(Turno, filters={"estado": Turno.estado, "id_empleado": Turno.id_empleado, "id_puesto": Turno.id_puesto, "fecha": Turno.fecha, "tipo_turno": Turno.tipo_turno, "tipo_asignacion": Turno.tipo_asignacion}, sort_fields={"id_turno": Turno.id_turno, "fecha": Turno.fecha}, options=(joinedload(Turno.empleado), joinedload(Turno.puesto)))
     except CrudValidationError as error: return jsonify({"error": str(error), "detalles": error.errors}), 400
     return jsonify({"data": [_serialize_turno(item) for item in items], "meta": meta}), 200
 
