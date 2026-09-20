@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../services/authenticated_api_client.dart';
 import '../../auth/auth_provider.dart';
@@ -12,11 +13,40 @@ class OperacionService {
   OperacionService(this._apiClient);
 
   final AuthenticatedApiClient _apiClient;
-  final Map<int, String> _tokens = {};
+  static const _storage = FlutterSecureStorage();
+  String? _sessionToken;
+  int? _deviceId;
 
   Map<String, String> _headers(int id) {
-    final token = _tokens[id];
-    return token == null ? {} : {'X-Device-Token': token};
+    return _sessionToken == null || _deviceId != id ? {} : {'X-Device-Session': _sessionToken!};
+  }
+
+  Future<int?> restoreDeviceSession() async {
+    _sessionToken = await _storage.read(key: 'operative_session_token');
+    _deviceId = int.tryParse(await _storage.read(key: 'operative_device_id') ?? '');
+    if (_sessionToken == null || _deviceId == null) return null;
+    try { await getSession(_deviceId!); return _deviceId; } catch (_) { await clearLocalSession(); return null; }
+  }
+
+  Future<DispositivoInfo> login(String username, String password) async {
+    final response = await _apiClient.post('/operacion/login', body: {'usuario': username, 'password': password}) as Map<String, dynamic>;
+    final data = response['data'] as Map<String, dynamic>;
+    final device = DispositivoInfo.fromJson(data['dispositivo'] as Map<String, dynamic>);
+    _sessionToken = data['session_token'] as String;
+    _deviceId = device.idDispositivo;
+    await _storage.write(key: 'operative_session_token', value: _sessionToken);
+    await _storage.write(key: 'operative_device_id', value: '${device.idDispositivo}');
+    return device;
+  }
+
+  Future<void> logoutDevice(int deviceId) async {
+    try { await _apiClient.post('/operacion/dispositivos/$deviceId/logout', headers: _headers(deviceId)); } finally { await clearLocalSession(); }
+  }
+
+  Future<void> clearLocalSession() async {
+    _sessionToken = null; _deviceId = null;
+    await _storage.delete(key: 'operative_session_token');
+    await _storage.delete(key: 'operative_device_id');
   }
 
   Future<DispositivoInfo> getDeviceById(int deviceId) async {
@@ -31,13 +61,6 @@ class OperacionService {
         await _apiClient.get('/operacion/dispositivos/codigo/$codigo')
             as Map<String, dynamic>;
     return DispositivoInfo.fromJson(response['data'] as Map<String, dynamic>);
-  }
-
-  Future<DispositivoInfo> activateDevice(String codigo, String token) async {
-    final device = await getDeviceByCodigo(codigo);
-    _tokens[device.idDispositivo] = token;
-    await getSession(device.idDispositivo);
-    return device;
   }
 
   Future<List<GuardiaDisponible>> getAvailableGuards(int deviceId) async {
@@ -80,7 +103,11 @@ class OperacionService {
     await _apiClient.post('/operacion/dispositivos/$deviceId/asistencias', headers: _headers(deviceId), body: {'latitud': latitud, 'longitud': longitud, 'observacion': observacion});
   }
 
-  Future<void> createIncident(int deviceId, {required String tipo, required String descripcion}) async {
-    await _apiClient.post('/operacion/dispositivos/$deviceId/novedades', headers: _headers(deviceId), body: {'tipo': tipo, 'descripcion': descripcion});
+  Future<void> createIncident(int deviceId, {required String tipo, required String descripcion, String? photoPath}) async {
+    if (photoPath == null) {
+      await _apiClient.post('/operacion/dispositivos/$deviceId/novedades', headers: _headers(deviceId), body: {'tipo': tipo, 'descripcion': descripcion});
+    } else {
+      await _apiClient.postMultipart('/operacion/dispositivos/$deviceId/novedades-con-foto', headers: _headers(deviceId), fields: {'tipo': tipo, 'descripcion': descripcion}, filePath: photoPath);
+    }
   }
 }

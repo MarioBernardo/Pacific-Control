@@ -11,7 +11,7 @@ novedad_service = NovedadService()
 
 
 def _serialize_novedad(novedad: Novedad) -> dict:
-    return {"id_novedad": novedad.id_novedad, "tipo": novedad.tipo, "descripcion": novedad.descripcion, "fecha_hora": novedad.fecha_hora.isoformat(), "estado": novedad.estado, "id_empleado": novedad.id_empleado, "id_turno": novedad.id_turno}
+    return {"id_novedad": novedad.id_novedad, "tipo": novedad.tipo, "descripcion": novedad.descripcion, "fecha_hora": novedad.fecha_hora.isoformat(), "estado": novedad.estado, "id_empleado": novedad.id_empleado, "id_turno": novedad.id_turno, "id_dispositivo": novedad.id_dispositivo, "evidencia_foto": novedad.evidencia_foto}
 
 
 def _payload():

@@ -108,3 +108,10 @@ empleado e incluye `turnos_disponibles`, con el `id_turno` real de `12 HORAS` y
 `{"id_empleado": <int>, "tipo_turno": "12 HORAS" | "24 HORAS"}`. El servidor
 resuelve el turno correspondiente y no confia en un `id_turno` enviado por el
 cliente. La sesion Redis almacena el turno y la modalidad seleccionada.
+# Operación Semana 14
+
+- `POST /operacion/login`: `{ "usuario": "baviera", "password": "..." }`; devuelve token opaco y dispositivo/puesto.
+- Los endpoints protegidos de operación aceptan `X-Device-Session`; `X-Device-Token` queda como compatibilidad interna.
+- `POST /operacion/dispositivos/<id>/logout`: invalida el vínculo y limpia el guardia.
+- `POST /operacion/dispositivos/<id>/asistencias`: requiere latitud `[-90,90]` y longitud `[-180,180]`.
+- `POST /operacion/dispositivos/<id>/novedades-con-foto`: multipart con `tipo`, `descripcion` y `foto` opcional JPEG/PNG de hasta 5 MB.

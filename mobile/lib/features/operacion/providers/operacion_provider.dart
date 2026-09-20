@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/device_session.dart';
 import '../services/operacion_service.dart';
+import '../services/native_capabilities.dart';
+
+final nativeCapabilitiesProvider = Provider<NativeCapabilities>((ref) => DeviceNativeCapabilities());
 
 // ------------------------------------------------------------------
 // Device list with embedded puesto info

@@ -19,6 +19,13 @@ DEMO_DEVICE_TOKENS = {
     "VERTICE-01": "VerticeDemo2026!",
 }
 
+DEMO_OPERATIONAL_ACCOUNTS = {
+    "BAVIERA-01": ("baviera", "BavieraOperativa2026!"),
+    "CENTURY-01": ("century", "CenturyOperativa2026!"),
+    "GRAND-VICTORIA-01": ("grandvictoria", "GrandVictoriaOperativa2026!"),
+    "VERTICE-01": ("vertice", "VerticeOperativa2026!"),
+}
+
 
 OFFICIAL_ASSIGNMENTS = {
     "ED. BAVIERA": {
@@ -174,6 +181,9 @@ def seed_operational_demo() -> dict[str, int]:
         device.token_operativo_hash = generate_password_hash(
             DEMO_DEVICE_TOKENS[data["device"]]
         )
+        username, password = DEMO_OPERATIONAL_ACCOUNTS[data["device"]]
+        device.usuario_operativo = username
+        device.password_operativo_hash = generate_password_hash(password)
         cache.delete(f"pacific-control:operacion:sesion:{device.id_dispositivo}")
 
         names_for_assignment = (

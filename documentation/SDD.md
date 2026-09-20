@@ -310,3 +310,6 @@ empleado en asignaciones; cache-aside sin hashes de contraseña; invalidación
 explícita de `novedades`; credencial de dispositivo con hash; y sesión Redis de
 12 horas. La vigencia usa fecha y estado porque los horarios exactos de entrada
 y salida no están definidos; no se rechaza por una hora inventada.
+# Extensión Semana 14
+
+La capa operativa separa el vínculo persistente del dispositivo (token opaco en almacenamiento seguro/Redis) de la identificación temporal del guardia (Redis, 12 horas). Las asistencias reciben coordenadas puntuales y las novedades admiten una referencia relativa a evidencia JPEG/PNG almacenada por el backend. Esto no altera JWT ni la autorización administrativa.

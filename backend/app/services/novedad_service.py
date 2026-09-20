@@ -26,6 +26,7 @@ class NovedadService:
         "id_empleado",
         "id_turno",
     )
+    _allowed_fields = set(_required_fields) | {"evidencia_foto", "id_dispositivo"}
 
     def __init__(self, repository: NovedadRepository | None = None):
         self.repository = repository or NovedadRepository()
@@ -130,7 +131,7 @@ class NovedadService:
     def _validate_data(self, payload: dict, require_all: bool) -> dict:
         errors = validate_payload(
             payload,
-            set(self._required_fields),
+            self._allowed_fields,
             self._required_fields,
             require_all,
         )
@@ -144,6 +145,7 @@ class NovedadService:
             "estado": lambda: required_string(payload, "estado", 20, errors),
             "id_empleado": lambda: required_integer(payload, "id_empleado", errors),
             "id_turno": lambda: required_integer(payload, "id_turno", errors),
+            "id_dispositivo": lambda: required_integer(payload, "id_dispositivo", errors),
         }
 
         for field, validator in validators.items():
@@ -151,6 +153,13 @@ class NovedadService:
 
             if field in payload and value is not None:
                 data[field] = value
+
+        if "evidencia_foto" in payload:
+            value = payload.get("evidencia_foto")
+            if value is not None and (not isinstance(value, str) or len(value) > 255):
+                errors["evidencia_foto"] = "La referencia de evidencia no es válida."
+            else:
+                data["evidencia_foto"] = value
 
         validate_catalog(data.get("estado"), INCIDENT_STATES, "estado", errors)
         raise_if_invalid(errors, data, require_all)

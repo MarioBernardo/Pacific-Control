@@ -1,5 +1,7 @@
 """Operational device flow, separate from administrative JWT authentication."""
 from datetime import date, datetime
+import hashlib
+import secrets
 from flask import current_app
 from sqlalchemy.orm import joinedload
 from werkzeug.security import check_password_hash
@@ -15,6 +17,7 @@ from app.services.novedad_service import NovedadService
 
 SESSION_TTL_SECONDS = 43200
 _SESSION_KEY = "pacific-control:operacion:sesion:{device_id}"
+_DEVICE_LINK_KEY = "pacific-control:operacion:vinculo:{token_hash}"
 
 class OperacionUnavailableError(Exception): pass
 class OperacionAuthorizationError(Exception): pass
@@ -22,9 +25,43 @@ class OperacionAuthorizationError(Exception): pass
 def _session_key(device_id): return _SESSION_KEY.format(device_id=device_id)
 
 class OperacionService:
-    def authenticate_device(self, device_id, token):
+    def login_device(self, username, password):
+        if not isinstance(username, str) or not username.strip() or not isinstance(password, str) or not password:
+            raise OperacionAuthorizationError("Usuario o contraseña incorrectos.")
+        device = db.session.execute(
+            db.select(Dispositivo).where(Dispositivo.usuario_operativo == username.strip().lower())
+        ).scalar_one_or_none()
+        if device is None or not device.password_operativo_hash or not check_password_hash(device.password_operativo_hash, password):
+            raise OperacionAuthorizationError("Usuario o contraseña incorrectos.")
+        valid = self._valid_device(device.id_dispositivo)
+        if valid is None:
+            raise OperacionAuthorizationError("El dispositivo o puesto está inactivo.")
+        token = secrets.token_urlsafe(48)
+        stored = cache.set_json(
+            self._device_link_key(token), {"id_dispositivo": device.id_dispositivo},
+            ttl=current_app.config["DEVICE_LINK_TTL"],
+        )
+        if not stored:
+            raise OperacionUnavailableError("No fue posible crear la sesión del dispositivo.")
+        return {"session_token": token, "dispositivo": self._serialize_device(*valid)}
+
+    def logout_device(self, device_id, session_token):
+        self.authenticate_device(device_id, None, session_token)
+        cache.delete(self._device_link_key(session_token), _session_key(device_id))
+
+    @staticmethod
+    def _device_link_key(token):
+        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        return _DEVICE_LINK_KEY.format(token_hash=digest)
+
+    def authenticate_device(self, device_id, token=None, session_token=None):
         device = db.session.get(Dispositivo, device_id)
         if device is None: return None
+        if session_token:
+            link = cache.get_json(self._device_link_key(session_token))
+            if link and link.get("id_dispositivo") == device_id:
+                return device
+            raise OperacionAuthorizationError("La sesión del dispositivo no es válida o expiró.")
         if not device.token_operativo_hash:
             if not current_app.config.get("ALLOW_LEGACY_OPERATIVE_DEVICES", False):
                 raise OperacionAuthorizationError("El dispositivo requiere aprovisionamiento operativo.")
@@ -103,7 +140,7 @@ class OperacionService:
 
     def create_incident(self, device_id, payload):
         guard = self._required_session(device_id)["guardia_identificado"]
-        return NovedadService().create({"tipo": payload.get("tipo"), "descripcion": payload.get("descripcion"), "fecha_hora": payload.get("fecha_hora", datetime.now().isoformat()), "estado": "abierta", "id_empleado": guard["id_empleado"], "id_turno": guard["id_turno"]})
+        return NovedadService().create({"tipo": payload.get("tipo"), "descripcion": payload.get("descripcion"), "fecha_hora": payload.get("fecha_hora", datetime.now().isoformat()), "estado": "abierta", "id_empleado": guard["id_empleado"], "id_turno": guard["id_turno"], "id_dispositivo": device_id, "evidencia_foto": payload.get("evidencia_foto")})
 
     def _required_session(self, device_id):
         session = self.get_session(device_id)

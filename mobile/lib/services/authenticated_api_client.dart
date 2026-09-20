@@ -52,6 +52,17 @@ class AuthenticatedApiClient {
   Future<dynamic> patch(String path, {Object? body, Map<String, String>? headers}) => _send(path, body: body, headers: headers, request: (uri, values, encoded) => client.patch(uri, headers: values, body: encoded));
   Future<dynamic> delete(String path, {Object? body, Map<String, String>? headers}) => _send(path, body: body, headers: headers, request: (uri, values, encoded) => client.delete(uri, headers: values, body: encoded));
 
+  Future<dynamic> postMultipart(String path, {required Map<String, String> fields, String? filePath, Map<String, String>? headers}) async {
+    final request = http.MultipartRequest('POST', Uri.parse(_url(path)));
+    request.headers.addAll({...?headers});
+    request.fields.addAll(fields);
+    if (filePath != null) request.files.add(await http.MultipartFile.fromPath('foto', filePath));
+    try {
+      final streamed = await client.send(request).timeout(timeout);
+      return await _handleResponse(await http.Response.fromStream(streamed));
+    } on ApiException { rethrow; } on TimeoutException { throw const ApiNetworkException(); } on http.ClientException { throw const ApiNetworkException(); }
+  }
+
   Future<dynamic> _send(String path, {Object? body, Map<String, String>? headers, required Future<http.Response> Function(Uri, Map<String, String>, String?) request}) async {
     final values = <String, String>{...?headers};
     final token = accessToken();

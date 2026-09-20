@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,8 @@ import '../../../theme/app_colors.dart';
 import '../models/device_session.dart';
 import '../providers/operacion_provider.dart';
 import '../services/operacion_service.dart';
+import '../services/native_capabilities.dart';
+import '../services/attendance_location_controller.dart';
 
 /// Main operative screen shown after a guard identifies themselves.
 class GuardiaTrabajoPage extends ConsumerWidget {
@@ -199,9 +203,8 @@ class _WorkView extends ConsumerWidget {
       if (context.mounted) context.go('/operacion/$deviceId/guardias');
     } on ApiException catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
       }
     }
   }
@@ -235,28 +238,135 @@ class _AsistenciaDialogState extends ConsumerState<_AsistenciaDialog> {
 
   Future<void> _submit() async {
     if (_loading) return;
+    final proceed =
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Ubicación para la asistencia'),
+            content: const Text(
+              'Pacific Control necesita acceder a tu ubicación para registrar el lugar desde donde se realiza la asistencia.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('CANCELAR'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('CONTINUAR'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!proceed || !mounted) return;
     setState(() {
       _loading = true;
       _result = null;
     });
 
+    final native = ref.read(nativeCapabilitiesProvider);
+    final controller = AttendanceLocationController(native: native);
+    late final AttendanceLocationOutcome outcome;
     try {
-      await ref.read(operacionServiceProvider).createAttendance(
-        widget.dispositivo.idDispositivo,
-        latitud: '0', longitud: '0',
-        observacion: _observacionController.text.trim().isEmpty ? null : _observacionController.text.trim(),
-      );
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _success = true;
-        _result = 'Asistencia registrada correctamente.';
+      outcome = await controller.submit((location) {
+        return ref
+            .read(operacionServiceProvider)
+            .createAttendance(
+              widget.dispositivo.idDispositivo,
+              latitud: location.latitude.toString(),
+              longitud: location.longitude.toString(),
+              observacion: _observacionController.text.trim().isEmpty
+                  ? null
+                  : _observacionController.text.trim(),
+            );
       });
-    } on ApiException catch (e) {
-      setState(() {
-        _loading = false;
-        _result = e.message;
-      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+    if (!mounted) return;
+
+    switch (outcome.status) {
+      case AttendanceLocationStatus.success:
+        setState(() {
+          _success = true;
+          _result = 'Asistencia registrada correctamente.';
+        });
+        return;
+      case AttendanceLocationStatus.denied:
+        setState(() {
+          _result =
+              'No se pudo obtener la ubicación porque el permiso fue denegado.';
+        });
+        return;
+      case AttendanceLocationStatus.permanentlyDenied:
+        final settings =
+            await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                content: const Text(
+                  'El permiso de ubicación está desactivado para Pacific Control. Actívalo desde los ajustes del dispositivo para registrar la asistencia.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('CANCELAR'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('ABRIR AJUSTES'),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (settings) await native.openSettings();
+        if (mounted) {
+          setState(() {
+            _result =
+                'Ubicación requerida. Activa el permiso y vuelve a intentar.';
+          });
+        }
+        return;
+      case AttendanceLocationStatus.gpsDisabled:
+        final open =
+            await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                content: const Text(
+                  'Activa la ubicación del dispositivo para registrar la asistencia.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('CANCELAR'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('ABRIR UBICACIÓN'),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (open) await native.openLocationSettings();
+        if (mounted) {
+          setState(
+            () => _result = 'El servicio de ubicación está desactivado.',
+          );
+        }
+        return;
+      case AttendanceLocationStatus.timeout:
+        setState(() {
+          _result = 'No fue posible obtener tu ubicación. Verifica que la ubicación esté activada e inténtalo nuevamente.';
+        });
+        return;
+      case AttendanceLocationStatus.error:
+        final error = outcome.error;
+        setState(() {
+          _result = error is ApiException ? error.message : 'No fue posible obtener tu ubicación. Verifica que la ubicación esté activada e inténtalo nuevamente.';
+        });
+        return;
     }
   }
 
@@ -338,6 +448,83 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
   bool _loading = false;
   String? _result;
   bool _success = false;
+  String? _photoPath;
+
+  Future<void> _takePhoto() async {
+    final proceed =
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            content: const Text(
+              'Pacific Control utiliza la cámara para adjuntar evidencia fotográfica a la novedad.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('CANCELAR'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('CONTINUAR'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+    if (!proceed || !mounted) return;
+    final native = ref.read(nativeCapabilitiesProvider);
+    final permission = await native.requestCameraPermission();
+    if (permission == NativePermissionState.permanentlyDenied) {
+      if (!mounted) return;
+      final settings =
+          await showDialog<bool>(
+            context: context,
+            builder: (_) => AlertDialog(
+              content: const Text(
+                'El permiso de cámara está desactivado para Pacific Control. Puedes activarlo desde los ajustes del dispositivo. La novedad puede continuar sin foto.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('CONTINUAR SIN FOTO'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text('ABRIR AJUSTES'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+      if (settings) await native.openSettings();
+      return;
+    }
+    if (permission != NativePermissionState.granted) {
+      if (mounted) {
+        setState(
+          () => _result =
+              'Permiso denegado. La novedad puede enviarse sin fotografía.',
+        );
+      }
+      return;
+    }
+    try {
+      final path = await native.takePhoto();
+      if (path != null && mounted) {
+        setState(() {
+          _photoPath = path;
+          _result = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _result =
+              'La cámara no está disponible. Puedes continuar sin foto.',
+        );
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -358,10 +545,14 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
     });
 
     try {
-      await ref.read(operacionServiceProvider).createIncident(
-        widget.dispositivo.idDispositivo,
-        tipo: _tipoController.text.trim(), descripcion: _descripcionController.text.trim(),
-      );
+      await ref
+          .read(operacionServiceProvider)
+          .createIncident(
+            widget.dispositivo.idDispositivo,
+            tipo: _tipoController.text.trim(),
+            descripcion: _descripcionController.text.trim(),
+            photoPath: _photoPath,
+          );
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -399,6 +590,38 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
               decoration: const InputDecoration(labelText: 'Tipo'),
               enabled: !_loading && !_success,
             ),
+            const SizedBox(height: 12),
+            if (_photoPath == null) ...[
+              OutlinedButton.icon(
+                onPressed: _loading || _success ? null : _takePhoto,
+                icon: const Icon(Icons.camera_alt),
+                label: const Text('TOMAR FOTOGRAFÍA'),
+              ),
+              const Text('Novedad sin evidencia fotográfica.'),
+            ] else ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  File(_photoPath!),
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: _takePhoto,
+                    child: const Text('REPETIR FOTO'),
+                  ),
+                  TextButton(
+                    onPressed: () => setState(() => _photoPath = null),
+                    child: const Text('QUITAR FOTO'),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 8),
             TextFormField(
               controller: _descripcionController,

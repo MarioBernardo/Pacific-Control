@@ -471,3 +471,6 @@ administrativas aceptan `page`, `per_page` (máximo 100), filtros, `search`,
 
 Son credenciales exclusivas de desarrollo; PostgreSQL conserva solamente sus
 hashes. Todos los puestos admiten `12 HORAS` y `24 HORAS` por turno.
+# Semana 14
+
+El flujo operativo admite login persistente por puesto/dispositivo, geolocalización de asistencia y evidencia fotográfica opcional en novedades. La configuración, cuentas demo y matriz de prueba física están en [documentation/SEMANA_14_FUNCIONES_NATIVAS.md](documentation/SEMANA_14_FUNCIONES_NATIVAS.md).

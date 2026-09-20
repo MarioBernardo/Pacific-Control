@@ -41,3 +41,12 @@ Cada guardia aparece una sola vez. Al tocarlo, el operador debe elegir
 explicitamente 12 o 24 horas antes de identificarse. El boton queda deshabilitado
 mientras no exista seleccion y la API vincula la modalidad con el turno real
 utilizado por asistencia y novedades.
+# Dispositivo físico
+
+Use la IP LAN real del equipo backend (obtenida con `ipconfig`), no `10.0.2.2`:
+
+```powershell
+flutter run -d <DEVICE_ID> --dart-define=API_BASE_URL=http://<IPV4_DEL_PC>:5000
+```
+
+La ubicación se solicita al registrar asistencia y la cámara al tomar evidencia de una novedad. Consulte `documentation/SEMANA_14_FUNCIONES_NATIVAS.md`.

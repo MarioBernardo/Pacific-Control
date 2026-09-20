@@ -22,7 +22,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(refreshNotifier.dispose);
 
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/operacion',
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final authState = ref.read(authControllerProvider);
@@ -30,7 +30,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isOperational = state.matchedLocation.startsWith('/operacion');
 
       if (authState.isRestoring) return null;
-      if (!authState.isAuthenticated && !isLogin && !isOperational) return '/login';
+      if (!authState.isAuthenticated && !isLogin && !isOperational) {
+        return '/login';
+      }
       if (authState.isAuthenticated && isLogin) return '/home';
       return null;
     },

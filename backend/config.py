@@ -35,6 +35,11 @@ class Config:
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     CACHE_DEFAULT_TTL = _positive_integer(os.getenv("CACHE_DEFAULT_TTL"), 300)
     OPERATIVE_SESSION_TTL = _positive_integer(os.getenv("OPERATIVE_SESSION_TTL"), 43200)
+    DEVICE_LINK_TTL = _positive_integer(os.getenv("DEVICE_LINK_TTL"), 2592000)
+    NOVEDAD_UPLOAD_FOLDER = os.getenv(
+        "NOVEDAD_UPLOAD_FOLDER", os.path.join(os.path.dirname(__file__), "uploads", "novedades")
+    )
+    MAX_NOVEDAD_PHOTO_BYTES = _positive_integer(os.getenv("MAX_NOVEDAD_PHOTO_BYTES"), 5 * 1024 * 1024)
     REQUIRE_REDIS_OPERATIVE_SESSION = os.getenv(
         "REQUIRE_REDIS_OPERATIVE_SESSION", "true"
     ).lower() == "true"

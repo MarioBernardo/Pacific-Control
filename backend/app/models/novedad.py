@@ -12,8 +12,10 @@ class Novedad(db.Model):
     descripcion = db.Column(Text, nullable=False)
     fecha_hora = db.Column(DateTime, nullable=False)
     estado = db.Column(String(20), nullable=False)
+    evidencia_foto = db.Column(String(255))
     id_empleado = db.Column(Integer, ForeignKey("empleados.id_empleado"), nullable=False)
     id_turno = db.Column(Integer, ForeignKey("turnos.id_turno"), nullable=False)
+    id_dispositivo = db.Column(Integer, ForeignKey("dispositivos.id_dispositivo"), nullable=True)
 
     empleado = relationship("Empleado", back_populates="novedades", lazy="select")
     turno = relationship("Turno", back_populates="novedades", lazy="select")

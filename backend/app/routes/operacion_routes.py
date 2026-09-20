@@ -22,7 +22,9 @@ Security guarantees:
   protected by JWT + cargo_required on their own blueprints.
 """
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
+from pathlib import Path
+import uuid
 
 from app.services.operacion_service import OperacionService, OperacionAuthorizationError, OperacionUnavailableError
 from app.services.turno_service import VALID_TIPO_TURNO
@@ -35,12 +37,37 @@ _service = OperacionService()
 
 def _authorize(device_id):
     try:
-        device = _service.authenticate_device(device_id, request.headers.get("X-Device-Token"))
+        device = _service.authenticate_device(
+            device_id, request.headers.get("X-Device-Token"), request.headers.get("X-Device-Session")
+        )
     except OperacionAuthorizationError as error:
         return None, (jsonify({"error": str(error)}), 401)
     if device is None:
         return None, (jsonify({"error": "Dispositivo no encontrado."}), 404)
     return device, None
+
+
+@operacion_bp.post("/login")
+def login_device():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Debe enviar un objeto JSON válido."}), 400
+    try:
+        result = _service.login_device(payload.get("usuario"), payload.get("password"))
+    except OperacionAuthorizationError as error:
+        return jsonify({"error": str(error)}), 401
+    except OperacionUnavailableError as error:
+        return jsonify({"error": str(error)}), 503
+    return jsonify({"data": result}), 200
+
+
+@operacion_bp.post("/dispositivos/<int:device_id>/logout")
+def logout_device(device_id):
+    try:
+        _service.logout_device(device_id, request.headers.get("X-Device-Session"))
+    except OperacionAuthorizationError as error:
+        return jsonify({"error": str(error)}), 401
+    return jsonify({"data": {"mensaje": "Sesión del dispositivo cerrada."}}), 200
 
 
 @operacion_bp.get("/dispositivos/<int:device_id>")
@@ -155,3 +182,40 @@ def create_operational_incident(device_id: int):
     except CrudValidationError as exc: return jsonify({"error": str(exc), "detalles": exc.errors}), 400
     except CrudConflictError as exc: return jsonify({"error": str(exc)}), 409
     return jsonify({"data": _serialize_novedad(item)}), 201
+
+
+@operacion_bp.post("/dispositivos/<int:device_id>/novedades-con-foto")
+def create_operational_incident_with_photo(device_id: int):
+    _, error = _authorize(device_id)
+    if error: return error
+    photo = request.files.get("foto")
+    saved_path = None
+    try:
+        payload = {"tipo": request.form.get("tipo"), "descripcion": request.form.get("descripcion")}
+        if photo and photo.filename:
+            content = photo.read(current_app.config["MAX_NOVEDAD_PHOTO_BYTES"] + 1)
+            if len(content) > current_app.config["MAX_NOVEDAD_PHOTO_BYTES"]:
+                return jsonify({"error": "La fotografía supera el límite de 5 MB."}), 413
+            kind = (
+                "jpeg" if content.startswith(b"\xff\xd8\xff")
+                else "png" if content.startswith(b"\x89PNG\r\n\x1a\n")
+                else None
+            )
+            if kind not in {"jpeg", "png"}:
+                return jsonify({"error": "La evidencia debe ser una imagen JPEG o PNG válida."}), 400
+            extension = ".jpg" if kind == "jpeg" else ".png"
+            folder = Path(current_app.config["NOVEDAD_UPLOAD_FOLDER"]).resolve()
+            folder.mkdir(parents=True, exist_ok=True)
+            filename = f"{uuid.uuid4().hex}{extension}"
+            saved_path = folder / filename
+            saved_path.write_bytes(content)
+            payload["evidencia_foto"] = f"uploads/novedades/{filename}"
+        item = _service.create_incident(device_id, payload)
+        return jsonify({"data": _serialize_novedad(item)}), 201
+    except OperacionAuthorizationError as exc: return jsonify({"error": str(exc)}), 401
+    except CrudValidationError as exc:
+        if saved_path: saved_path.unlink(missing_ok=True)
+        return jsonify({"error": str(exc), "detalles": exc.errors}), 400
+    except CrudConflictError as exc:
+        if saved_path: saved_path.unlink(missing_ok=True)
+        return jsonify({"error": str(exc)}), 409

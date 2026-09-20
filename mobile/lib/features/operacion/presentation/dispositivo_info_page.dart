@@ -6,6 +6,7 @@ import '../../../services/authenticated_api_client.dart';
 import '../../../theme/app_colors.dart';
 import '../models/device_session.dart';
 import '../providers/operacion_provider.dart';
+import '../services/operacion_service.dart';
 
 /// Shows device + puesto info and lets the user proceed to guard selection.
 class DispositivoInfoPage extends ConsumerWidget {
@@ -21,6 +22,14 @@ class DispositivoInfoPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Dispositivo'),
         actions: [
+          IconButton(
+            tooltip: 'Cerrar sesión del dispositivo',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await ref.read(operacionServiceProvider).logoutDevice(deviceId);
+              if (context.mounted) context.go('/operacion');
+            },
+          ),
           IconButton(
             tooltip: 'Actualizar',
             icon: const Icon(Icons.refresh),
