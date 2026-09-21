@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/attendance/presentation/asistencias_page.dart';
+import '../features/agent/presentation/agent_page.dart';
 import '../features/attendance/presentation/guard_activity_page.dart';
 import '../features/attendance/presentation/personnel_on_shift_page.dart';
 import '../features/auth/auth_provider.dart';
@@ -86,6 +87,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/novedades',
         builder: (context, state) => const NovedadesPage(),
+      ),
+      GoRoute(
+        path: '/asistente-pacific',
+        builder: (context, state) => const AgentPage(),
       ),
       // ── Operative flow ──────────────────────────────────────
       GoRoute(path: '/operacion', redirect: (context, state) => '/login'),

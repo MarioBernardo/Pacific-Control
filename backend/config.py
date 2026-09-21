@@ -28,7 +28,7 @@ class Config:
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL",
-        "postgresql://postgres:1234@localhost:5432/pacific_control",
+        "postgresql://postgres@localhost:5432/pacific_control",
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     CACHE_ENABLED = os.getenv("CACHE_ENABLED", "true").lower() == "true"
@@ -57,3 +57,10 @@ class Config:
     JWT_QUERY_STRING_NAME = "access_token"
     CELERY_BROKER_URL = REDIS_URL
     CELERY_RESULT_BACKEND = REDIS_URL
+    AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini").strip().lower()
+    AI_API_KEY = os.getenv("AI_API_KEY", "").strip()
+    AI_MODEL = os.getenv("AI_MODEL", "").strip()
+    AI_BASE_URL = os.getenv(
+        "AI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"
+    ).rstrip("/")
+    AI_TIMEOUT_SECONDS = _positive_integer(os.getenv("AI_TIMEOUT_SECONDS"), 20)

@@ -92,6 +92,42 @@ class ReportService:
             "personal_en_turno": personnel[:5],
         }
 
+    def attendances_today(self, now: datetime | None = None) -> list[dict]:
+        now = now or datetime.now()
+        start = datetime.combine(now.date(), datetime.min.time())
+        end = start + timedelta(days=1)
+        items = db.session.execute(
+            self._base_attendance_statement().where(
+                Asistencia.fecha_hora >= start,
+                Asistencia.fecha_hora < end,
+                db.func.lower(Asistencia.estado).not_in(INVALID_ATTENDANCE_STATES),
+            ).order_by(Asistencia.fecha_hora.desc())
+        ).scalars().all()
+        return [_attendance_data(item) for item in items]
+
+    def recent_incidents(self, limit: int = 20) -> list[dict]:
+        items = db.session.execute(
+            db.select(Novedad)
+            .options(
+                joinedload(Novedad.empleado),
+                joinedload(Novedad.turno).joinedload(Turno.puesto),
+            )
+            .order_by(Novedad.fecha_hora.desc(), Novedad.id_novedad.desc())
+            .limit(max(1, min(limit, 50)))
+        ).scalars().all()
+        return [
+            {
+                "id_novedad": item.id_novedad,
+                "tipo": item.tipo,
+                "descripcion": item.descripcion,
+                "fecha_hora": item.fecha_hora.isoformat(),
+                "estado": item.estado,
+                "guardia": f"{item.empleado.apellidos} {item.empleado.nombres}",
+                "puesto": item.turno.puesto.nombre_puesto,
+            }
+            for item in items
+        ]
+
     def monthly_summary(self, employee_id: int, month: int, year: int) -> dict:
         start = datetime(year, month, 1)
         end = datetime(year, month, monthrange(year, month)[1]) + timedelta(days=1)

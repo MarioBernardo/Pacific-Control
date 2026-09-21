@@ -19,6 +19,7 @@ from app.routes.asistencia_routes import asistencias_bp
 from app.routes.report_routes import reportes_bp
 from app.routes.novedad_routes import novedades_bp
 from app.routes.operacion_routes import operacion_bp
+from app.routes.agent_routes import agente_bp
 from app.auth.auth_routes import auth_bp
 
 
@@ -44,6 +45,7 @@ def create_app(test_config: dict | None = None):
     app.register_blueprint(reportes_bp)
     app.register_blueprint(novedades_bp)
     app.register_blueprint(operacion_bp)
+    app.register_blueprint(agente_bp)
     app.register_blueprint(auth_bp)
 
     return app

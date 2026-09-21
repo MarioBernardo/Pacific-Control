@@ -1,476 +1,78 @@
-# Pacific Control
+# PACIFIC CONTROL
 
-## Descripción
+Sistema móvil y API para administrar y supervisar la operación de una empresa de seguridad privada: personal, puestos, dispositivos, turnos, asistencias y novedades.
 
-Pacific Control es un sistema desarrollado para optimizar la gestión operativa de una empresa de seguridad privada mediante una aplicación móvil y una API REST. El sistema permite administrar empleados, puestos, dispositivos, turnos, asistencias y novedades, garantizando un control eficiente de las operaciones y facilitando el seguimiento en tiempo real.
+## Problema y alcance
 
-El sistema está compuesto por un **backend/API REST desarrollado con Flask** y una **aplicación móvil desarrollada con Flutter**. El backend utiliza una arquitectura por capas, autenticación mediante JWT, almacenamiento en caché con Redis y procesamiento asíncrono con Celery.
+Digitaliza la asignación de guardias, el registro verificable de asistencia, el reporte de incidentes y la consulta administrativa en tiempo real. El dispositivo pertenece al puesto; cada guardia elige una asignación FIJO/SACA_FRANCO y turno de 12/24 HORAS.
 
----
+## Arquitectura y stack
 
-## Objetivos del Proyecto
+- Backend: Python, Flask Application Factory, SQLAlchemy, PostgreSQL, Alembic, JWT, Redis y Celery.
+- Capas: routes → services → repositories → models.
+- Móvil: Flutter, Riverpod, go_router, HTTP y flutter_secure_storage.
+- Nativas: geolocator, image_picker y permission_handler.
+- IA: ASISTENTE PACIFIC con Gemini API para la demostración y proveedor OpenAI-compatible alternativo, siempre desde backend.
 
-- Digitalizar el registro de asistencia del personal operativo.
-- Administrar la asignación de puestos y dispositivos.
-- Gestionar turnos de trabajo.
-- Registrar novedades e incidencias en tiempo real.
-- Mejorar el rendimiento de la API mediante almacenamiento en caché.
-- Implementar una arquitectura escalable y mantenible.
+## Funcionalidades
 
----
+Administración: login JWT, dashboard, CRUD de seis recursos, personal en turno, resumen mensual, coordenadas, evidencia y agente IA.
 
-# Tecnologías Utilizadas
+Operación: login por puesto, sesión persistente, selección/cambio de guardia, asistencia con ubicación obligatoria, novedad con foto opcional y logout del dispositivo.
 
-| Tecnología | Descripción |
-|------------|-------------|
-| Python 3 | Lenguaje de programación |
-| Flask | Framework para la API REST |
-| SQLAlchemy | ORM para acceso a la base de datos |
-| PostgreSQL | Sistema gestor de base de datos |
-| Flask-Migrate (Alembic) | Control de migraciones |
-| Redis | Sistema de almacenamiento en caché |
-| Celery | Procesamiento de tareas asíncronas |
-| Flask-JWT-Extended | Autenticación mediante JSON Web Tokens |
-| python-dotenv | Gestión de variables de entorno |
-| Git | Control de versiones |
-| GitHub | Repositorio del proyecto |
+ASISTENTE PACIFIC permite a ADMINISTRADOR/SUPERVISOR consultar dashboard, personal, asistencias y novedades mediante lenguaje natural. Usa datos reales obtenidos por herramientas allowlist; no genera SQL ni recibe secretos en Flutter.
 
----
+## Estructura
 
-## Tecnologías móviles
+- `backend/`: API, migraciones, seeds y tests.
+- `mobile/`: aplicación Flutter y tests.
+- `documentation/`: API, SDD, trazabilidad y guía final.
+- `spec/`: especificaciones funcionales originales.
 
-| Tecnología | Uso en el proyecto |
-|------------|--------------------|
-| Flutter | Desarrollo de la aplicación móvil. |
-| Dart | Lenguaje de programación de Flutter. |
-| Android Studio | Ejecución y administración del entorno Android. |
-| Android Emulator | Pruebas de la aplicación móvil contra el backend local. |
-| HTTP | Consumo de la API REST de Flask. |
-| flutter_secure_storage | Almacenamiento seguro de la sesión y del token JWT. |
+## Configuración y ejecución
 
----
+1. Copiar `backend/.env.example` a `backend/.env` y sustituir placeholders sin versionar secretos.
+2. Preparar PostgreSQL y Redis.
+3. En `backend`: instalar `requirements.txt`, ejecutar `flask --app run.py db upgrade`, cargar el seed e iniciar `python run.py`.
+4. Iniciar Celery con `celery -A app.celery_app.celery worker --loglevel=info --pool=solo` en Windows.
+5. En `mobile`: `flutter pub get` y `flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000`.
 
-## Estructura general del proyecto
+Para dispositivo físico, sustituir 10.0.2.2 por la IP LAN del equipo. La guía completa está en [documentation/GUIA_EJECUCION_FINAL.md](documentation/GUIA_EJECUCION_FINAL.md).
 
-```text
-Pacific-Control/
-├── backend/
-├── mobile/
-├── documentation/
-└── spec/
-```
+## IA
 
-- `backend/`: API REST en Flask, modelos, servicios, rutas, migraciones y configuración.
-- `mobile/`: aplicación Flutter para Android y otras plataformas compatibles.
-- `documentation/`: documentación técnica y de arquitectura del proyecto.
-- `spec/`: especificaciones y planificación de funcionalidades.
+Variables backend: `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL`, `AI_TIMEOUT_SECONDS`. Para Gemini se recomienda `gemini-2.5-flash`, modelo estable apto para texto y con Free Tier según Google al validar esta integración. Los límites y disponibilidad pueden cambiar. Sin clave/modelo, el endpoint responde 503. Las pruebas usan mocks y no consumen créditos.
 
----
+## Validación
 
-# Arquitectura del Proyecto
-
-El backend implementa una arquitectura basada en **Application Factory** y separación por capas para facilitar el mantenimiento y la escalabilidad.
-
-```
-backend/
-│
-├── app/
-│   ├── auth/
-│   ├── models/
-│   ├── repositories/
-│   ├── routes/
-│   ├── services/
-│   ├── cache.py
-│   ├── celery_app.py
-│   ├── extensions.py
-│   └── tasks.py
-│
-├── migrations/
-├── tests/
-├── config.py
-├── requirements.txt
-└── run.py
-```
-
-La aplicación está organizada utilizando:
-
-- Application Factory
-- Blueprints
-- Repository Pattern
-- Service Pattern
-- SQLAlchemy ORM
-- JWT Authentication
-- Redis Cache Aside
-- Celery para procesamiento asíncrono
-
----
-
-# Funcionalidades
-
-El sistema permite administrar la siguiente información:
-
-- Gestión de empleados.
-- Gestión de puestos de trabajo.
-- Gestión de dispositivos móviles.
-- Gestión de turnos.
-- Registro de asistencias.
-- Registro de novedades.
-- Autenticación mediante JWT.
-- Protección de endpoints.
-- Almacenamiento en caché con Redis.
-- Procesamiento asíncrono mediante Celery.
-
----
-
-# Seguridad
-
-El backend implementa autenticación basada en JSON Web Tokens (JWT).
-
-Características:
-
-- Inicio de sesión seguro.
-- Generación de Access Token.
-- Protección de endpoints mediante `@jwt_required()`.
-- Contraseñas almacenadas utilizando hash.
-- Tokens enviados mediante el encabezado Authorization Bearer.
-
----
-
-# Caché
-
-Se implementó el patrón **Cache Aside** utilizando Redis para optimizar consultas frecuentes y reducir el acceso repetitivo a la base de datos.
-
-Beneficios:
-
-- Menor tiempo de respuesta.
-- Reducción de carga sobre PostgreSQL.
-- Invalidación automática del caché cuando existen cambios en la información.
-
----
-
-# Procesamiento Asíncrono
-
-Se implementó Celery para ejecutar tareas que no requieren respuesta inmediata al usuario.
-
-Esto permite:
-
-- Mejorar el rendimiento de la API.
-- Procesar tareas en segundo plano.
-- Facilitar la escalabilidad del sistema.
-
----
-
-# Base de Datos
-
-Motor utilizado:
-
-- PostgreSQL
-
-Acceso mediante:
-
-- SQLAlchemy ORM
-
-Control de versiones:
-
-- Flask-Migrate
-- Alembic
-
----
-
-## Configuración y ejecución del backend
-
-## Clonar el repositorio
-
-```bash
-git clone <URL_DEL_REPOSITORIO>
-```
-
-## Ingresar al backend
-
-```bash
+Backend:
+```powershell
 cd backend
+..\venv\Scripts\python.exe -B -m unittest discover -s tests -v
+..\venv\Scripts\python.exe -B -m pip check
 ```
 
-## Crear entorno virtual
-
-```bash
-python -m venv venv
-```
-
-## Activar entorno virtual
-
-Windows:
-
-```bash
-venv\Scripts\activate
-```
-
-Linux/macOS:
-
-```bash
-source venv/bin/activate
-```
-
-## Instalar dependencias
-
-```bash
-pip install -r requirements.txt
-```
-
-## Ejecutar el backend
-
-```bash
-python run.py
-```
-
-Flask queda disponible en el puerto `5000` y escucha en `0.0.0.0`, lo que permite el acceso desde el emulador Android mediante `10.0.2.2`.
-
----
-
-# Variables de Entorno
-
-Crear un archivo `.env` con la siguiente configuración:
-
-```env
-SECRET_KEY=tu_secret_key
-JWT_SECRET_KEY=tu_jwt_secret
-DATABASE_URL=postgresql://usuario:password@localhost:5432/pacific_control
-REDIS_URL=redis://localhost:6379/0
-CACHE_ENABLED=true
-CACHE_DEFAULT_TTL=300
-```
-
----
-
-# Migraciones
-
-Crear migraciones:
-
-```bash
-flask db migrate -m "Nueva migración"
-```
-
-Aplicar migraciones:
-
-```bash
-flask db upgrade
-```
-
----
-
-# Endpoints Principales
-
-- Autenticación
-- Empleados
-- Puestos
-- Dispositivos
-- Turnos
-- Asistencias
-- Novedades
-
-Todos los endpoints protegidos requieren un token JWT válido.
-
----
-
-## Configuración y ejecución de la aplicación móvil
-
-Desde la raíz del proyecto, ingresa a la aplicación móvil e instala sus dependencias:
-
-```bash
+Flutter:
+```powershell
 cd mobile
 flutter pub get
-flutter devices
-```
-
-Para ejecutar la aplicación en el emulador Android:
-
-```bash
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000
-```
-
-La dirección `10.0.2.2` permite que el emulador Android acceda al servidor Flask que se ejecuta en el computador anfitrión.
-
----
-
-## Conexión Flutter - Flask
-
-Flutter consume la API REST del backend mediante HTTP. La conectividad inicial se verifica con:
-
-```text
-GET /
-```
-
-Una respuesta JSON correcta confirma que el backend está funcionando y que el emulador puede comunicarse con Flask.
-
----
-
-## Autenticación móvil
-
-El flujo de autenticación implementado es:
-
-```text
-LoginPage
-    ↓
-POST /auth/login
-    ↓
-Flask valida correo y contraseña
-    ↓
-JWT access_token
-    ↓
-Flutter almacena la sesión de forma segura
-    ↓
-HomePage
-```
-
-El inicio de sesión envía:
-
-```json
-{
-  "correo": "usuario@empresa.com",
-  "password": "********"
-}
-```
-
-Una autenticación exitosa devuelve el `access_token` y los datos del empleado. Flutter conserva la sesión mediante almacenamiento seguro.
-
----
-
-## Interfaz móvil
-
-La aplicación móvil cuenta actualmente con:
-
-- Pantalla de inicio de sesión.
-- Campos de usuario y contraseña.
-- Validación de formulario y mensajes de error.
-- Opción para mostrar u ocultar la contraseña.
-- Diseño basado en los colores corporativos de Pacific Control.
-- Logotipo de Pacific Security Force.
-- Pantalla principal después de autenticarse.
-- Cierre de sesión.
-
----
-
-## Logo y recursos gráficos
-
-El logotipo oficial se encuentra en:
-
-```text
-mobile/assets/branding/
-```
-
-El directorio está declarado como asset en `mobile/pubspec.yaml` y el logo se muestra conservando sus proporciones originales.
-
----
-
-## Verificación del proyecto
-
-Para comprobar el análisis estático y las pruebas de Flutter:
-
-```bash
 flutter analyze
 flutter test
+flutter build apk --debug
 ```
 
-Para revisar problemas de espacios o formato en los cambios del repositorio:
+El APK debug queda en `mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 
-```bash
-git diff --check
-```
+Validación técnica actual: 111 pruebas backend, 73 pruebas Flutter, análisis estático sin incidencias y APK debug compilado correctamente.
 
----
+## Documentación
 
-## Flujo completo de ejecución
+- [Contrato API](documentation/api.md)
+- [Diseño del sistema](documentation/SDD.md)
+- [Trazabilidad](documentation/TRAZABILIDAD.md)
+- [Guía final](documentation/GUIA_EJECUCION_FINAL.md)
+- [Funciones nativas Semana 14](documentation/SEMANA_14_FUNCIONES_NATIVAS.md)
 
-1. Iniciar PostgreSQL y los servicios locales necesarios, como Redis cuando esté habilitado.
-2. Iniciar el backend Flask desde `backend/`.
-3. Verificar que Flask está escuchando en el puerto `5000`.
-4. Iniciar el emulador Android.
-5. Ejecutar Flutter indicando `API_BASE_URL=http://10.0.2.2:5000`.
-6. Verificar la conexión con el backend mediante `GET /`.
-7. Realizar el inicio de sesión.
-8. Verificar el acceso a la pantalla principal.
-9. Probar el cierre de sesión.
+## Autor
 
----
-
-# Buenas Prácticas Implementadas
-
-- Arquitectura por capas.
-- Separación de responsabilidades.
-- Repository Pattern.
-- Service Pattern.
-- Variables de entorno.
-- Autenticación JWT.
-- Cache Aside.
-- Procesamiento asíncrono.
-- Migraciones con Alembic.
-- Organización modular mediante Blueprints.
-
----
-
-# Estado del Proyecto
-
-**Versión:** 1.0
-
-Estado actual:
-
-- Arquitectura implementada.
-- Backend/API REST funcional y CRUD implementados.
-- Autenticación JWT.
-- Redis Cache.
-- Celery.
-- PostgreSQL.
-- Migraciones.
-- Aplicación móvil Flutter.
-- Conexión Flutter ↔ Flask.
-- Login móvil funcional.
-- Sesión segura.
-- Interfaz móvil con diseño corporativo.
-
----
-
-# Autor
-
-**Mario David Bernardo Campo**
-
-Universidad Estatal Amazónica
-
-Carrera de Tecnologías de la Información
-
-Proyecto académico desarrollado para la asignatura de Desarrollo de Aplicaciones Móviles.
-
----
-
-## Video de demostración
-
-El video de demostración será incorporado posteriormente como parte de la entrega.
-# Cierre técnico operativo (2026-09)
-
-Pacific Control separa dos contextos: la administración usa JWT y roles; el modo
-operativo usa una credencial propia por dispositivo (`X-Device-Token`) y una
-sesión Redis de 12 horas. Ejecute `flask db upgrade` y luego el seed operativo
-para aprovisionar hashes de credenciales y asignaciones vigentes. Las colecciones
-administrativas aceptan `page`, `per_page` (máximo 100), filtros, `search`,
-`sort` y `order=asc|desc` según la lista blanca de cada recurso.
-# Cierre técnico operativo (2026-09)
-
-Pacific Control separa dos contextos: la administración usa JWT y roles; el modo
-operativo usa una credencial propia por dispositivo (`X-Device-Token`) y una
-sesión Redis de 12 horas. Ejecute `flask db upgrade` y luego el seed operativo
-para aprovisionar hashes de credenciales y asignaciones vigentes. Las colecciones
-administrativas aceptan `page`, `per_page` (máximo 100), filtros, `search`,
-`sort` y `order=asc|desc` según la lista blanca de cada recurso.
-# Credenciales demo E2E
-
-| Dispositivo | Token demo |
-|---|---|
-| `BAVIERA-01` | `BavieraDemo2026!` |
-| `CENTURY-01` | `CenturyDemo2026!` |
-| `GRAND-VICTORIA-01` | `GrandVictoriaDemo2026!` |
-| `VERTICE-01` | `VerticeDemo2026!` |
-
-Son credenciales exclusivas de desarrollo; PostgreSQL conserva solamente sus
-hashes. Todos los puestos admiten `12 HORAS` y `24 HORAS` por turno.
-# Semana 14
-
-El flujo operativo admite login persistente por puesto/dispositivo, geolocalización de asistencia y evidencia fotográfica opcional en novedades. La configuración, cuentas demo y matriz de prueba física están en [documentation/SEMANA_14_FUNCIONES_NATIVAS.md](documentation/SEMANA_14_FUNCIONES_NATIVAS.md).
+Mario David Bernardo Campo — Universidad Estatal Amazónica, Tecnologías de la Información.

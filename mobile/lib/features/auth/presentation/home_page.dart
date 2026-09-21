@@ -71,6 +71,12 @@ class HomePage extends ConsumerWidget {
                 onRetry: () => ref.invalidate(administrativeDashboardProvider),
                 onViewAll: () => context.push('/personal-en-turno'),
               ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => context.push('/asistente-pacific'),
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('ASISTENTE PACIFIC'),
+              ),
             ],
             const SizedBox(height: 24),
 

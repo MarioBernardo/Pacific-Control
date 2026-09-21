@@ -131,6 +131,18 @@ void main() {
     expect(find.text('Puestos'), findsOneWidget);
     expect(find.text('Dispositivos'), findsOneWidget);
     expect(find.text('Turnos'), findsOneWidget);
+    final assistantButton = find.widgetWithText(
+      FilledButton,
+      'ASISTENTE PACIFIC',
+    );
+    await tester.scrollUntilVisible(
+      assistantButton,
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(assistantButton);
+    await tester.pumpAndSettle();
+    expect(find.text('ASISTENTE PACIFIC'), findsOneWidget);
   });
 
   testWidgets('cuenta administrativa valida entra y logout vuelve a portada', (
