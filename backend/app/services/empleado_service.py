@@ -48,17 +48,10 @@ class EmpleadoService:
         return empleado
 
     def get_by_id(self, empleado_id: int) -> Empleado | None:
-        return cache_service.get_by_id(
-            "empleado",
-            empleado_id,
-            Empleado,
-            lambda: self.repository.get_by_id(empleado_id),
-        )
+        return self.repository.get_by_id(empleado_id)
 
     def get_all(self) -> list[Empleado]:
-        return cache_service.get_all(
-            "empleados", Empleado, lambda: self.repository.get_all()
-        )
+        return self.repository.get_all()
 
     def update(self, empleado_id: int, payload: dict) -> Empleado | None:
         empleado = self.repository.get_by_id(empleado_id)

@@ -191,7 +191,13 @@ def create_operational_incident_with_photo(device_id: int):
     photo = request.files.get("foto")
     saved_path = None
     try:
-        payload = {"tipo": request.form.get("tipo"), "descripcion": request.form.get("descripcion")}
+        payload = {
+            "operation_id": request.form.get("operation_id"),
+            "tipo": request.form.get("tipo"),
+            "descripcion": request.form.get("descripcion"),
+        }
+        if request.form.get("fecha_hora"):
+            payload["fecha_hora"] = request.form["fecha_hora"]
         if photo and photo.filename:
             content = photo.read(current_app.config["MAX_NOVEDAD_PHOTO_BYTES"] + 1)
             if len(content) > current_app.config["MAX_NOVEDAD_PHOTO_BYTES"]:
@@ -211,6 +217,8 @@ def create_operational_incident_with_photo(device_id: int):
             saved_path.write_bytes(content)
             payload["evidencia_foto"] = f"uploads/novedades/{filename}"
         item = _service.create_incident(device_id, payload)
+        if saved_path and item.evidencia_foto != payload.get("evidencia_foto"):
+            saved_path.unlink(missing_ok=True)
         return jsonify({"data": _serialize_novedad(item)}), 201
     except OperacionAuthorizationError as exc: return jsonify({"error": str(exc)}), 401
     except CrudValidationError as exc:

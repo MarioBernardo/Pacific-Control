@@ -41,8 +41,12 @@ class OperationalSeedTestCase(unittest.TestCase):
         self.assertEqual(second["empleados"], 0)
         self.assertEqual(db.session.query(Puesto).count(), 4)
         self.assertEqual(db.session.query(Dispositivo).count(), 4)
-        self.assertEqual(db.session.query(Asistencia).count(), 1)
-        self.assertEqual(db.session.query(Novedad).count(), 1)
+        self.assertEqual(db.session.query(Asistencia).count(), 0)
+        self.assertEqual(db.session.query(Novedad).count(), 0)
+        self.assertTrue(all(
+            turno.hora_inicio is None and turno.hora_fin is None
+            for turno in db.session.query(Turno).all()
+        ))
         self.assertEqual(
             db.session.query(Turno).filter_by(tipo_asignacion="SACA_FRANCO").count(),
             14,

@@ -1,13 +1,11 @@
-from datetime import date, datetime, time
+from datetime import date
 
 from werkzeug.security import generate_password_hash
 
 from app.auth.auth_seed import seed_demo_users
 from app.extensions import cache, db
-from app.models.asistencia import Asistencia
 from app.models.dispositivo import Dispositivo
 from app.models.empleado import Empleado
-from app.models.novedad import Novedad
 from app.models.puesto import Puesto
 from app.models.turno import Turno
 
@@ -111,8 +109,8 @@ def _employee(full_name: str, index: int) -> tuple[Empleado, bool]:
     return employee, created
 
 
-def seed_operational_demo() -> dict[str, int]:
-    """Create the official operational demo graph idempotently."""
+def seed_operational_demo(target_date: date | None = None) -> dict[str, int]:
+    """Create the operational demo graph idempotently for a chosen date."""
     seed_demo_users()
 
     employees_by_name = {}
@@ -138,8 +136,7 @@ def seed_operational_demo() -> dict[str, int]:
         "novedades": 0,
     }
 
-    demo_date = date.today()
-    first_turno = None
+    demo_date = target_date or date.today()
 
     for building, data in OFFICIAL_ASSIGNMENTS.items():
         puesto = db.session.execute(
@@ -206,8 +203,8 @@ def seed_operational_demo() -> dict[str, int]:
                 if turno is None:
                     turno = Turno(
                         fecha=demo_date,
-                        hora_inicio=time(0, 0),
-                        hora_fin=time(0, 0),
+                        hora_inicio=None,
+                        hora_fin=None,
                         estado="activo",
                         tipo_turno=shift,
                         tipo_asignacion=assignment,
@@ -221,54 +218,6 @@ def seed_operational_demo() -> dict[str, int]:
                     turno.estado = "activo"
 
                 db.session.flush()
-
-                if first_turno is None:
-                    first_turno = (turno, device, employee, puesto)
-
-    if first_turno is not None:
-        turno, device, employee, puesto = first_turno
-
-        attendance = db.session.execute(
-            db.select(Asistencia).where(
-                Asistencia.id_turno == turno.id_turno,
-                Asistencia.id_empleado == employee.id_empleado,
-            )
-        ).scalar_one_or_none()
-
-        if attendance is None:
-            db.session.add(
-                Asistencia(
-                    fecha_hora=datetime.combine(demo_date, time(8, 0)),
-                    latitud=0,
-                    longitud=0,
-                    observacion=f"Demo {puesto.nombre_puesto}",
-                    estado="registrada",
-                    id_empleado=employee.id_empleado,
-                    id_turno=turno.id_turno,
-                    id_dispositivo=device.id_dispositivo,
-                )
-            )
-            created["asistencias"] += 1
-
-        novelty = db.session.execute(
-            db.select(Novedad).where(
-                Novedad.id_turno == turno.id_turno,
-                Novedad.tipo == "CONTROL OPERATIVO",
-            )
-        ).scalar_one_or_none()
-
-        if novelty is None:
-            db.session.add(
-                Novedad(
-                    tipo="CONTROL OPERATIVO",
-                    descripcion=f"Registro demo de {puesto.nombre_puesto}",
-                    fecha_hora=datetime.combine(demo_date, time(8, 30)),
-                    estado="abierta",
-                    id_empleado=employee.id_empleado,
-                    id_turno=turno.id_turno,
-                )
-            )
-            created["novedades"] += 1
 
     db.session.commit()
     return created

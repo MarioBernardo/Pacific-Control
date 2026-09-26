@@ -8,6 +8,7 @@ class Novedad(db.Model):
     __tablename__ = "novedades"
 
     id_novedad = db.Column(Integer, primary_key=True)
+    operation_id = db.Column(String(36), unique=True, nullable=True)
     tipo = db.Column(String(100), nullable=False)
     descripcion = db.Column(Text, nullable=False)
     fecha_hora = db.Column(DateTime, nullable=False)

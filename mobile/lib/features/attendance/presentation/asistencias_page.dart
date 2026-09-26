@@ -325,7 +325,7 @@ class _FormState extends State<_Form> {
       for (final e in widget.shifts)
         DropdownMenuItem(
           value: e.idTurno,
-          child: Text('${e.fecha} ${e.horaInicio}'),
+          child: Text('${e.fecha} ${e.horaInicio ?? 'Sin hora'}'),
         ),
     ],
     onChanged: (v) => setState(() => shift = v),

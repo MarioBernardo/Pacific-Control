@@ -8,6 +8,7 @@ from app.services.empleado_service import (
 )
 from app.services.query_service import paginated
 from app.services.crud_utils import CrudValidationError
+from app.services.cache_service import cache_service
 
 
 empleados_bp = Blueprint("empleados", __name__, url_prefix="/empleados")
@@ -60,11 +61,15 @@ def list_empleados():
 @empleados_bp.get("/<int:empleado_id>")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR")
 def get_empleado(empleado_id: int):
-    empleado = empleado_service.get_by_id(empleado_id)
-    if empleado is None:
+    data = cache_service.get_by_id(
+        "empleado", empleado_id,
+        lambda: empleado_service.get_by_id(empleado_id),
+        _serialize_empleado,
+    )
+    if data is None:
         return jsonify({"error": "Empleado no encontrado."}), 404
 
-    return jsonify({"data": _serialize_empleado(empleado)}), 200
+    return jsonify({"data": data}), 200
 
 
 @empleados_bp.put("/<int:empleado_id>")

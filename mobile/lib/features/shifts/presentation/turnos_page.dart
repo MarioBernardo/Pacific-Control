@@ -169,7 +169,11 @@ class _TurnoTile extends StatelessWidget {
             color: active ? AppColors.darkBlue : AppColors.mutedText,
           ),
         ),
-        title: Text('${turno.fecha} | ${turno.horaInicio} - ${turno.horaFin}'),
+        title: Text(
+          turno.horaInicio == null || turno.horaFin == null
+              ? '${turno.fecha} | Sin horario restrictivo'
+              : '${turno.fecha} | ${turno.horaInicio} - ${turno.horaFin}',
+        ),
         subtitle: Text(
           '${turno.empleadoNombre ?? 'Empleado no disponible'}\n'
           '${turno.puestoNombre ?? 'Puesto no disponible'} | ${turno.tipoTurno}\n'

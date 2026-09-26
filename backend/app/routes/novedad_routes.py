@@ -7,6 +7,7 @@ from app.models.turno import Turno
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.novedad_service import NovedadService
 from app.services.query_service import paginated
+from app.services.cache_service import cache_service
 from sqlalchemy.orm import joinedload
 
 
@@ -19,7 +20,7 @@ def _serialize_novedad(novedad: Novedad) -> dict:
     turno = novedad.turno
     dispositivo = novedad.dispositivo
     puesto = turno.puesto if turno else (dispositivo.puesto if dispositivo else None)
-    return {"id_novedad": novedad.id_novedad, "tipo": novedad.tipo, "descripcion": novedad.descripcion, "fecha_hora": novedad.fecha_hora.isoformat(), "estado": novedad.estado, "id_empleado": novedad.id_empleado, "id_turno": novedad.id_turno, "id_dispositivo": novedad.id_dispositivo, "evidencia_foto": novedad.evidencia_foto, "guardia": {"id_empleado": empleado.id_empleado, "nombre_completo": f"{empleado.apellidos} {empleado.nombres}"} if empleado else None, "turno": {"id_turno": turno.id_turno, "tipo_turno": turno.tipo_turno, "tipo_asignacion": turno.tipo_asignacion} if turno else None, "puesto": {"id_puesto": puesto.id_puesto, "nombre_puesto": puesto.nombre_puesto} if puesto else None, "dispositivo": {"id_dispositivo": dispositivo.id_dispositivo, "codigo_dispositivo": dispositivo.codigo_dispositivo} if dispositivo else None}
+    return {"id_novedad": novedad.id_novedad, "operation_id": novedad.operation_id, "tipo": novedad.tipo, "descripcion": novedad.descripcion, "fecha_hora": novedad.fecha_hora.isoformat(), "estado": novedad.estado, "id_empleado": novedad.id_empleado, "id_turno": novedad.id_turno, "id_dispositivo": novedad.id_dispositivo, "evidencia_foto": novedad.evidencia_foto, "guardia": {"id_empleado": empleado.id_empleado, "nombre_completo": f"{empleado.apellidos} {empleado.nombres}"} if empleado else None, "turno": {"id_turno": turno.id_turno, "tipo_turno": turno.tipo_turno, "tipo_asignacion": turno.tipo_asignacion} if turno else None, "puesto": {"id_puesto": puesto.id_puesto, "nombre_puesto": puesto.nombre_puesto} if puesto else None, "dispositivo": {"id_dispositivo": dispositivo.id_dispositivo, "codigo_dispositivo": dispositivo.codigo_dispositivo} if dispositivo else None}
 
 
 def _payload():
@@ -52,10 +53,14 @@ def list_novedades():
 @novedades_bp.get("/<int:novedad_id>")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def get_novedad(novedad_id: int):
-    novedad = novedad_service.get_by_id(novedad_id)
-    if novedad is None:
+    data = cache_service.get_by_id(
+        "novedad", novedad_id,
+        lambda: novedad_service.get_by_id(novedad_id),
+        _serialize_novedad,
+    )
+    if data is None:
         return jsonify({"error": "Novedad no encontrada."}), 404
-    return jsonify({"data": _serialize_novedad(novedad)}), 200
+    return jsonify({"data": data}), 200
 
 
 @novedades_bp.get("/<int:novedad_id>/evidencia")

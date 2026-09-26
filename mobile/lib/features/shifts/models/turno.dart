@@ -15,8 +15,8 @@ class Turno {
 
   final int? idTurno;
   final String fecha;
-  final String horaInicio;
-  final String horaFin;
+  final String? horaInicio;
+  final String? horaFin;
   final String estado;
   final String tipoTurno;
   final String tipoAsignacion;
@@ -29,8 +29,8 @@ class Turno {
     return Turno(
       idTurno: json['id_turno'] as int?,
       fecha: json['fecha'] as String,
-      horaInicio: json['hora_inicio'] as String,
-      horaFin: json['hora_fin'] as String,
+      horaInicio: json['hora_inicio'] as String?,
+      horaFin: json['hora_fin'] as String?,
       estado: json['estado'] as String,
       tipoTurno: json['tipo_turno'] as String? ?? '24 HORAS',
       tipoAsignacion: json['tipo_asignacion'] as String? ?? 'FIJO',

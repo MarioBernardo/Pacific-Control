@@ -4,6 +4,7 @@ from app.models.turno import Turno
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.turno_service import TurnoService, VALID_TIPO_TURNO, VALID_TIPO_ASIGNACION
 from app.services.query_service import paginated
+from app.services.cache_service import cache_service
 from sqlalchemy.orm import joinedload
 
 
@@ -15,8 +16,8 @@ def _serialize_turno(turno: Turno) -> dict:
     return {
         "id_turno": turno.id_turno,
         "fecha": turno.fecha.isoformat(),
-        "hora_inicio": turno.hora_inicio.isoformat(),
-        "hora_fin": turno.hora_fin.isoformat(),
+        "hora_inicio": turno.hora_inicio.isoformat() if turno.hora_inicio else None,
+        "hora_fin": turno.hora_fin.isoformat() if turno.hora_fin else None,
         "estado": turno.estado,
         "tipo_turno": turno.tipo_turno,
         "tipo_asignacion": turno.tipo_asignacion,
@@ -63,10 +64,14 @@ def list_turnos():
 @turnos_bp.get("/<int:turno_id>")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def get_turno(turno_id: int):
-    turno = turno_service.get_by_id(turno_id)
-    if turno is None:
+    data = cache_service.get_by_id(
+        "turno", turno_id,
+        lambda: turno_service.get_by_id(turno_id),
+        _serialize_turno,
+    )
+    if data is None:
         return jsonify({"error": "Turno no encontrado."}), 404
-    return jsonify({"data": _serialize_turno(turno)}), 200
+    return jsonify({"data": data}), 200
 
 
 @turnos_bp.put("/<int:turno_id>")

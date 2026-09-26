@@ -1,5 +1,6 @@
 from datetime import date, datetime, time
 from decimal import Decimal, InvalidOperation
+from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 
@@ -60,6 +61,21 @@ def optional_string(payload: dict, field: str, max_length: int, errors: dict) ->
         errors[field] = f"No puede superar {max_length} caracteres."
         return None
     return value
+
+
+def optional_operation_id(payload: dict, errors: dict) -> str | None:
+    if "operation_id" not in payload:
+        return None
+    value = payload["operation_id"]
+    if not isinstance(value, str):
+        errors["operation_id"] = "Debe ser un UUID valido."
+        return None
+    try:
+        parsed = UUID(value)
+    except (ValueError, AttributeError):
+        errors["operation_id"] = "Debe ser un UUID valido."
+        return None
+    return str(parsed)
 
 
 def required_integer(payload: dict, field: str, errors: dict) -> int | None:
@@ -144,4 +160,17 @@ def save_entity(repository, entity, conflict_message: str):
         return repository.save(entity)
     except IntegrityError as error:
         db.session.rollback()
+        raise CrudConflictError(conflict_message) from error
+
+
+def save_idempotent_entity(repository, entity, conflict_message: str):
+    try:
+        return repository.save(entity)
+    except IntegrityError as error:
+        operation_id = getattr(entity, "operation_id", None)
+        db.session.rollback()
+        if operation_id:
+            existing = repository.get_by_operation_id(operation_id)
+            if existing is not None:
+                return existing
         raise CrudConflictError(conflict_message) from error

@@ -8,11 +8,13 @@ from app.services.cache_service import cache_service
 from app.domain import INCIDENT_STATES, validate_catalog
 from app.services.crud_utils import (
     CrudValidationError,
+    optional_operation_id,
     raise_if_invalid,
     required_datetime,
     required_integer,
     required_string,
     save_entity,
+    save_idempotent_entity,
     validate_payload,
 )
 
@@ -26,16 +28,20 @@ class NovedadService:
         "id_empleado",
         "id_turno",
     )
-    _allowed_fields = set(_required_fields) | {"evidencia_foto", "id_dispositivo"}
+    _allowed_fields = set(_required_fields) | {"evidencia_foto", "id_dispositivo", "operation_id"}
 
     def __init__(self, repository: NovedadRepository | None = None):
         self.repository = repository or NovedadRepository()
 
     def create(self, payload: dict) -> Novedad:
         data = self._validate_data(payload, True)
+        if data.get("operation_id"):
+            existing = self.repository.get_by_operation_id(data["operation_id"])
+            if existing is not None:
+                return existing
         self._validate_references(data)
 
-        novedad = save_entity(
+        novedad = save_idempotent_entity(
             self.repository,
             Novedad(**data),
             "No fue posible guardar la novedad.",
@@ -56,19 +62,13 @@ class NovedadService:
         return novedad
 
     def get_by_id(self, novedad_id: int) -> Novedad | None:
-        return cache_service.get_by_id(
-            "novedad",
-            novedad_id,
-            Novedad,
-            lambda: self.repository.get_by_id(novedad_id),
-        )
+        return self.repository.get_by_id(novedad_id)
 
     def get_all(self) -> list[Novedad]:
-        return cache_service.get_all(
-            "novedades",
-            Novedad,
-            lambda: self.repository.get_all(),
-        )
+        return self.repository.get_all()
+
+    def get_by_operation_id(self, operation_id: str) -> Novedad | None:
+        return self.repository.get_by_operation_id(operation_id)
 
     def update(self, novedad_id: int, payload: dict) -> Novedad | None:
         novedad = self.repository.get_by_id(novedad_id)
@@ -146,6 +146,7 @@ class NovedadService:
             "id_empleado": lambda: required_integer(payload, "id_empleado", errors),
             "id_turno": lambda: required_integer(payload, "id_turno", errors),
             "id_dispositivo": lambda: required_integer(payload, "id_dispositivo", errors),
+            "operation_id": lambda: optional_operation_id(payload, errors),
         }
 
         for field, validator in validators.items():

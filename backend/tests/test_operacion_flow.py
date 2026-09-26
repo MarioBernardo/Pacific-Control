@@ -404,14 +404,22 @@ class OperacionFlowTestCase(unittest.TestCase):
 
             attendance = self.client.post(
                 f"/operacion/dispositivos/{self.device.id_dispositivo}/asistencias",
-                json={"latitud": "0", "longitud": "0"},
+                json={
+                    "operation_id": "10000000-0000-4000-8000-000000000001",
+                    "latitud": "0",
+                    "longitud": "0",
+                },
             )
             self.assertEqual(attendance.status_code, 201, attendance.get_json())
             self.assertEqual(attendance.get_json()["data"]["id_turno"], turno_12.id_turno)
 
             incident = self.client.post(
                 f"/operacion/dispositivos/{self.device.id_dispositivo}/novedades",
-                json={"tipo": "CONTROL", "descripcion": "Prueba turno 12 horas"},
+                json={
+                    "operation_id": "10000000-0000-4000-8000-000000000002",
+                    "tipo": "CONTROL",
+                    "descripcion": "Prueba turno 12 horas",
+                },
             )
             self.assertEqual(incident.status_code, 201, incident.get_json())
             self.assertEqual(incident.get_json()["data"]["id_turno"], turno_12.id_turno)

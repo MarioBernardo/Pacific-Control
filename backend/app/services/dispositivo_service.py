@@ -34,17 +34,10 @@ class DispositivoService:
         return dispositivo
 
     def get_by_id(self, dispositivo_id: int) -> Dispositivo | None:
-        return cache_service.get_by_id(
-            "dispositivo",
-            dispositivo_id,
-            Dispositivo,
-            lambda: self.repository.get_by_id(dispositivo_id),
-        )
+        return self.repository.get_by_id(dispositivo_id)
 
     def get_all(self) -> list[Dispositivo]:
-        return cache_service.get_all(
-            "dispositivos", Dispositivo, lambda: self.repository.get_all()
-        )
+        return self.repository.get_all()
 
     def update(self, dispositivo_id: int, payload: dict) -> Dispositivo | None:
         dispositivo = self.repository.get_by_id(dispositivo_id)

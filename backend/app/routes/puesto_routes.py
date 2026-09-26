@@ -4,6 +4,7 @@ from app.models.puesto import Puesto
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.query_service import paginated
 from app.services.puesto_service import PuestoService
+from app.services.cache_service import cache_service
 
 
 puestos_bp = Blueprint("puestos", __name__, url_prefix="/puestos")
@@ -44,10 +45,14 @@ def list_puestos():
 @puestos_bp.get("/<int:puesto_id>")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def get_puesto(puesto_id: int):
-    puesto = puesto_service.get_by_id(puesto_id)
-    if puesto is None:
+    data = cache_service.get_by_id(
+        "puesto", puesto_id,
+        lambda: puesto_service.get_by_id(puesto_id),
+        _serialize_puesto,
+    )
+    if data is None:
         return jsonify({"error": "Puesto no encontrado."}), 404
-    return jsonify({"data": _serialize_puesto(puesto)}), 200
+    return jsonify({"data": data}), 200
 
 
 @puestos_bp.put("/<int:puesto_id>")

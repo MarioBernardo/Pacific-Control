@@ -8,6 +8,7 @@ class Asistencia(db.Model):
     __tablename__ = "asistencias"
 
     id_asistencia = db.Column(Integer, primary_key=True)
+    operation_id = db.Column(String(36), unique=True, nullable=True)
     fecha_hora = db.Column(DateTime, nullable=False)
     latitud = db.Column(Numeric(10, 7), nullable=False)
     longitud = db.Column(Numeric(10, 7), nullable=False)

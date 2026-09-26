@@ -4,6 +4,7 @@ from app.models.dispositivo import Dispositivo
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.dispositivo_service import DispositivoService
 from app.services.query_service import paginated
+from app.services.cache_service import cache_service
 from sqlalchemy.orm import joinedload
 
 
@@ -45,10 +46,14 @@ def list_dispositivos():
 @dispositivos_bp.get("/<int:dispositivo_id>")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def get_dispositivo(dispositivo_id: int):
-    dispositivo = dispositivo_service.get_by_id(dispositivo_id)
-    if dispositivo is None:
+    data = cache_service.get_by_id(
+        "dispositivo", dispositivo_id,
+        lambda: dispositivo_service.get_by_id(dispositivo_id),
+        _serialize_dispositivo,
+    )
+    if data is None:
         return jsonify({"error": "Dispositivo no encontrado."}), 404
-    return jsonify({"data": _serialize_dispositivo(dispositivo)}), 200
+    return jsonify({"data": data}), 200
 
 
 @dispositivos_bp.put("/<int:dispositivo_id>")

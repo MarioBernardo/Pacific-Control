@@ -25,17 +25,10 @@ class PuestoService:
         return puesto
 
     def get_by_id(self, puesto_id: int) -> Puesto | None:
-        return cache_service.get_by_id(
-            "puesto",
-            puesto_id,
-            Puesto,
-            lambda: self.repository.get_by_id(puesto_id),
-        )
+        return self.repository.get_by_id(puesto_id)
 
     def get_all(self) -> list[Puesto]:
-        return cache_service.get_all(
-            "puestos", Puesto, lambda: self.repository.get_all()
-        )
+        return self.repository.get_all()
 
     def update(self, puesto_id: int, payload: dict) -> Puesto | None:
         puesto = self.repository.get_by_id(puesto_id)

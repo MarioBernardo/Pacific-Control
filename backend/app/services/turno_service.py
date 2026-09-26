@@ -35,17 +35,10 @@ class TurnoService:
         return turno
 
     def get_by_id(self, turno_id: int) -> Turno | None:
-        return cache_service.get_by_id(
-            "turno",
-            turno_id,
-            Turno,
-            lambda: self.repository.get_by_id(turno_id),
-        )
+        return self.repository.get_by_id(turno_id)
 
     def get_all(self) -> list[Turno]:
-        return cache_service.get_all(
-            "turnos", Turno, lambda: self.repository.get_all()
-        )
+        return self.repository.get_all()
 
     def get_active_by_puesto(self, puesto_id: int) -> list[Turno]:
         """Return active turnos for a puesto — used by the operative flow."""

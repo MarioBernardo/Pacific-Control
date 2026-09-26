@@ -11,6 +11,11 @@ class NovedadRepository:
             db.select(Novedad).order_by(Novedad.id_novedad)
         ).scalars().all()
 
+    def get_by_operation_id(self, operation_id: str) -> Novedad | None:
+        return db.session.execute(
+            db.select(Novedad).where(Novedad.operation_id == operation_id)
+        ).scalar_one_or_none()
+
     def save(self, novedad: Novedad) -> Novedad:
         db.session.add(novedad)
         db.session.commit()

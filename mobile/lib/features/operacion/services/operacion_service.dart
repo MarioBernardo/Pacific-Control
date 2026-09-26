@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
@@ -5,6 +8,8 @@ import 'package:http/http.dart' as http;
 import '../../../config/app_environment.dart';
 import '../../../services/authenticated_api_client.dart';
 import '../models/device_session.dart';
+import '../models/pending_operation.dart';
+import 'pending_operation_store.dart';
 
 final operacionApiClientProvider = Provider<AuthenticatedApiClient>((ref) {
   final client = http.Client();
@@ -22,12 +27,25 @@ final operacionServiceProvider = Provider<OperacionService>(
 );
 
 class OperacionService {
-  OperacionService(this._apiClient);
+  OperacionService(
+    this._apiClient, {
+    FlutterSecureStorage? storage,
+    PendingOperationStore? operationStore,
+    DateTime Function()? clock,
+    String Function()? operationIdGenerator,
+  }) : _storage = storage ?? const FlutterSecureStorage(),
+       _operationStore = operationStore ?? PendingOperationStore(),
+       _clock = clock ?? DateTime.now,
+       _operationIdGenerator = operationIdGenerator ?? _uuidV4;
 
   final AuthenticatedApiClient _apiClient;
-  static const _storage = FlutterSecureStorage();
+  final FlutterSecureStorage _storage;
+  final PendingOperationStore _operationStore;
+  final DateTime Function() _clock;
+  final String Function() _operationIdGenerator;
   String? _sessionToken;
   int? _deviceId;
+  bool _syncing = false;
 
   Map<String, String> _headers(int id) {
     return _sessionToken == null || _deviceId != id
@@ -43,8 +61,14 @@ class OperacionService {
     if (_sessionToken == null || _deviceId == null) return null;
     try {
       await getSession(_deviceId!);
+      await syncPendingOperations();
       return _deviceId;
-    } catch (_) {
+    } on ApiNetworkException {
+      return _deviceId;
+    } on ApiUnauthorizedException {
+      await clearLocalSession();
+      return null;
+    } on ApiNotFoundException {
       await clearLocalSession();
       return null;
     }
@@ -66,6 +90,7 @@ class OperacionService {
       key: 'operative_device_id',
       value: '${device.idDispositivo}',
     );
+    await syncPendingOperations();
     return device;
   }
 
@@ -90,6 +115,7 @@ class OperacionService {
   Future<DispositivoInfo> getDeviceById(int deviceId) async {
     final response = await _apiClient.get(
       '/operacion/dispositivos/$deviceId',
+      headers: _headers(deviceId),
     ) as Map<String, dynamic>;
     return DispositivoInfo.fromJson(response['data'] as Map<String, dynamic>);
   }
@@ -141,42 +167,164 @@ class OperacionService {
     );
   }
 
-  Future<void> createAttendance(
+  Future<PendingOperation> createAttendance(
     int deviceId, {
     required String latitud,
     required String longitud,
     String? observacion,
   }) async {
-    await _apiClient.post(
-      '/operacion/dispositivos/$deviceId/asistencias',
-      headers: _headers(deviceId),
-      body: {
+    final localDate = _clock();
+    final operation = PendingOperation(
+      operationId: _operationIdGenerator(),
+      type: PendingOperationType.asistencia,
+      deviceId: deviceId,
+      payload: {
+        'fecha_hora': localDate.toIso8601String(),
         'latitud': latitud,
         'longitud': longitud,
         'observacion': observacion,
       },
+      localDate: localDate,
+      status: PendingOperationStatus.pendiente,
+      attempts: 0,
     );
+    final queued = await _operationStore.enqueue(operation);
+    return _sendOperation(queued);
   }
 
-  Future<void> createIncident(
+  Future<PendingOperation> createIncident(
     int deviceId, {
     required String tipo,
     required String descripcion,
     String? photoPath,
   }) async {
-    if (photoPath == null) {
-      await _apiClient.post(
-        '/operacion/dispositivos/$deviceId/novedades',
-        headers: _headers(deviceId),
-        body: {'tipo': tipo, 'descripcion': descripcion},
+    final localDate = _clock();
+    final operation = PendingOperation(
+      operationId: _operationIdGenerator(),
+      type: PendingOperationType.novedad,
+      deviceId: deviceId,
+      payload: {
+        'fecha_hora': localDate.toIso8601String(),
+        'tipo': tipo,
+        'descripcion': descripcion,
+      },
+      localDate: localDate,
+      status: PendingOperationStatus.pendiente,
+      attempts: 0,
+    );
+    final queued = await _operationStore.enqueue(
+      operation,
+      sourcePhotoPath: photoPath,
+    );
+    return _sendOperation(queued);
+  }
+
+  Future<List<PendingOperation>> pendingOperations([int? deviceId]) async {
+    final all = await _operationStore.readAll();
+    return all
+        .where(
+          (item) =>
+              item.needsSync &&
+              (deviceId == null || item.deviceId == deviceId),
+        )
+        .toList();
+  }
+
+  Future<List<PendingOperation>> syncPendingOperations() async {
+    if (_syncing || _sessionToken == null || _deviceId == null) return [];
+    _syncing = true;
+    try {
+      final pending = await pendingOperations(_deviceId);
+      final results = <PendingOperation>[];
+      for (final operation in pending) {
+        results.add(await _sendOperation(operation));
+      }
+      return results;
+    } finally {
+      _syncing = false;
+    }
+  }
+
+  Future<PendingOperation> _sendOperation(PendingOperation operation) async {
+    var current = await _operationStore.update(
+      operation.copyWith(
+        status: PendingOperationStatus.enviando,
+        attempts: operation.attempts + 1,
+        clearLastError: true,
+      ),
+    );
+    try {
+      final body = {...current.payload, 'operation_id': current.operationId};
+      if (current.type == PendingOperationType.asistencia) {
+        await _apiClient.post(
+          '/operacion/dispositivos/${current.deviceId}/asistencias',
+          headers: _headers(current.deviceId),
+          body: body,
+        );
+      } else if (current.photoPath == null) {
+        await _apiClient.post(
+          '/operacion/dispositivos/${current.deviceId}/novedades',
+          headers: _headers(current.deviceId),
+          body: body,
+        );
+      } else {
+        await _apiClient.postMultipart(
+          '/operacion/dispositivos/${current.deviceId}/novedades-con-foto',
+          headers: _headers(current.deviceId),
+          fields: body.map(
+            (key, value) => MapEntry(key, value?.toString() ?? ''),
+          ),
+          filePath: current.photoPath,
+        );
+      }
+      current = await _operationStore.update(
+        current.copyWith(
+          status: PendingOperationStatus.sincronizado,
+          clearLastError: true,
+        ),
       );
-    } else {
-      await _apiClient.postMultipart(
-        '/operacion/dispositivos/$deviceId/novedades-con-foto',
-        headers: _headers(deviceId),
-        fields: {'tipo': tipo, 'descripcion': descripcion},
-        filePath: photoPath,
+      if (current.photoPath != null) {
+        try {
+          await File(current.photoPath!).delete();
+        } on FileSystemException {
+          // The backend record is already synchronized; cleanup can be retried later.
+        }
+      }
+      return current;
+    } on ApiNetworkException catch (error) {
+      return _operationStore.update(
+        current.copyWith(
+          status: PendingOperationStatus.pendiente,
+          lastError: error.message,
+        ),
+      );
+    } on ApiException catch (error) {
+      return _operationStore.update(
+        current.copyWith(
+          status: PendingOperationStatus.error,
+          lastError: error.message,
+        ),
+      );
+    } catch (error) {
+      return _operationStore.update(
+        current.copyWith(
+          status: PendingOperationStatus.error,
+          lastError: error.toString(),
+        ),
       );
     }
+  }
+
+  static String _uuidV4() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    final hex = bytes
+        .map((value) => value.toRadixString(16).padLeft(2, '0'))
+        .join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-'
+        '${hex.substring(20)}';
   }
 }

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../services/authenticated_api_client.dart';
 import '../../../theme/app_colors.dart';
 import '../models/device_session.dart';
+import '../models/pending_operation.dart';
 import '../providers/operacion_provider.dart';
 import '../services/operacion_service.dart';
 import '../services/attendance_location_controller.dart';
@@ -251,6 +252,12 @@ class _WorkView extends ConsumerWidget {
           icon: const Icon(Icons.swap_horiz),
           label: const Text('Cambiar guardia'),
         ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => _sincronizarPendientes(context, ref),
+          icon: const Icon(Icons.sync),
+          label: const Text('Sincronizar pendientes'),
+        ),
       ],
     );
   }
@@ -289,6 +296,30 @@ class _WorkView extends ConsumerWidget {
             .showSnackBar(SnackBar(content: Text(error.message)));
       }
     }
+  }
+
+  Future<void> _sincronizarPendientes(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final results = await ref
+        .read(operacionServiceProvider)
+        .syncPendingOperations();
+    if (!context.mounted) return;
+    final synchronized = results
+        .where((item) => item.status == PendingOperationStatus.sincronizado)
+        .length;
+    final remaining = await ref
+        .read(operacionServiceProvider)
+        .pendingOperations(deviceId);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Sincronizadas: $synchronized. Pendientes: ${remaining.length}.',
+        ),
+      ),
+    );
   }
 }
 
@@ -350,9 +381,10 @@ class _AsistenciaDialogState extends ConsumerState<_AsistenciaDialog> {
     final native = ref.read(nativeCapabilitiesProvider);
     final controller = AttendanceLocationController(native: native);
     late final AttendanceLocationOutcome outcome;
+    PendingOperation? operation;
     try {
-      outcome = await controller.submit((location) {
-        return ref
+      outcome = await controller.submit((location) async {
+        operation = await ref
             .read(operacionServiceProvider)
             .createAttendance(
               widget.dispositivo.idDispositivo,
@@ -371,8 +403,16 @@ class _AsistenciaDialogState extends ConsumerState<_AsistenciaDialog> {
     switch (outcome.status) {
       case AttendanceLocationStatus.success:
         setState(() {
-          _success = true;
-          _result = 'Asistencia registrada correctamente.';
+          _success = operation?.status != PendingOperationStatus.error;
+          _result = switch (operation?.status) {
+            PendingOperationStatus.sincronizado =>
+              'Asistencia registrada y sincronizada.',
+            PendingOperationStatus.pendiente =>
+              'Asistencia guardada como PENDIENTE. Se sincronizara al volver la conexion.',
+            PendingOperationStatus.error =>
+              'Asistencia guardada con ERROR. Usa Sincronizar pendientes para reintentar.',
+            _ => 'Asistencia guardada localmente.',
+          };
         });
         return;
       case AttendanceLocationStatus.denied:
@@ -653,7 +693,7 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
     });
 
     try {
-      await ref
+      final operation = await ref
           .read(operacionServiceProvider)
           .createIncident(
             widget.dispositivo.idDispositivo,
@@ -663,8 +703,16 @@ class _NovedadDialogState extends ConsumerState<_NovedadDialog> {
           );
       if (!mounted) return;
       setState(() {
-        _success = true;
-        _result = 'Novedad reportada correctamente.';
+        _success = operation.status != PendingOperationStatus.error;
+        _result = switch (operation.status) {
+          PendingOperationStatus.sincronizado =>
+            'Novedad registrada y sincronizada.',
+          PendingOperationStatus.pendiente =>
+            'Novedad guardada como PENDIENTE. Se sincronizara al volver la conexion.',
+          PendingOperationStatus.error =>
+            'Novedad guardada con ERROR. Usa Sincronizar pendientes para reintentar.',
+          _ => 'Novedad guardada localmente.',
+        };
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _result = e.message);

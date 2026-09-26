@@ -1,33 +1,53 @@
-from datetime import date, datetime, time
-from decimal import Decimal
-
-from sqlalchemy import Date, DateTime, Numeric, Time, inspect
+from collections.abc import Callable
+from typing import Any
 
 from app.extensions import cache
 
 
 class CacheService:
+    """Cache serialized response DTOs, never partially hydrated ORM models."""
+
     COLLECTIONS = {"empleado": "empleados", "puesto": "puestos", "dispositivo": "dispositivos", "turno": "turnos", "asistencia": "asistencias", "novedad": "novedades"}
-    def get_by_id(self, resource: str, item_id: int, model_class, loader):
+    RELATED_DTOS = {
+        "empleado": ("turno", "asistencia", "novedad"),
+        "puesto": ("dispositivo", "turno", "asistencia", "novedad"),
+        "dispositivo": ("asistencia", "novedad"),
+        "turno": ("asistencia", "novedad"),
+    }
+    def get_by_id(
+        self,
+        resource: str,
+        item_id: int,
+        loader: Callable[[], Any | None],
+        serializer: Callable[[Any], dict],
+    ) -> dict | None:
         key = self._item_key(resource, item_id)
         payload = cache.get_json(key)
-        if payload is not None:
-            return self._to_model(model_class, payload)
+        if isinstance(payload, dict):
+            return payload
 
         item = loader()
-        if item is not None:
-            cache.set_json(key, self._to_payload(item))
-        return item
+        if item is None:
+            return None
+        payload = serializer(item)
+        cache.set_json(key, payload)
+        return payload
 
-    def get_all(self, resource: str, model_class, loader):
+    def get_all(
+        self,
+        resource: str,
+        loader: Callable[[], list[Any]],
+        serializer: Callable[[Any], dict],
+    ) -> list[dict]:
         key = self._list_key(resource)
         payload = cache.get_json(key)
-        if payload is not None:
-            return [self._to_model(model_class, item) for item in payload]
+        if isinstance(payload, list):
+            return payload
 
         items = loader()
-        cache.set_json(key, [self._to_payload(item) for item in items])
-        return items
+        payload = [serializer(item) for item in items]
+        cache.set_json(key, payload)
+        return payload
 
     def invalidate(self, resource: str, item_id: int) -> None:
         singular = next((key for key, value in self.COLLECTIONS.items() if value == resource), resource)
@@ -41,6 +61,9 @@ class CacheService:
                 )
             )
         cache.delete(*keys)
+        for dependent in self.RELATED_DTOS.get(singular, ()):
+            cache.delete(self._list_key(self.COLLECTIONS[dependent]))
+            cache.delete_pattern(f"pacific-control:{dependent}:*")
 
     @staticmethod
     def _item_key(resource: str, item_id: int) -> str:
@@ -49,37 +72,5 @@ class CacheService:
     @staticmethod
     def _list_key(resource: str) -> str:
         return f"pacific-control:{resource}:all"
-
-    @staticmethod
-    def _to_payload(model) -> dict:
-        payload = {}
-        for column in inspect(model.__class__).columns:
-            if column.name == "password_hash" or column.name.endswith("_hash"):
-                continue
-            value = getattr(model, column.name)
-            if isinstance(value, (date, datetime, time)):
-                value = value.isoformat()
-            elif isinstance(value, Decimal):
-                value = str(value)
-            payload[column.name] = value
-        return payload
-
-    @staticmethod
-    def _to_model(model_class, payload: dict):
-        values = {}
-        for column in inspect(model_class).columns:
-            value = payload.get(column.name)
-            if value is not None:
-                if isinstance(column.type, DateTime):
-                    value = datetime.fromisoformat(value)
-                elif isinstance(column.type, Date):
-                    value = date.fromisoformat(value)
-                elif isinstance(column.type, Time):
-                    value = time.fromisoformat(value)
-                elif isinstance(column.type, Numeric):
-                    value = Decimal(value)
-            values[column.name] = value
-        return model_class(**values)
-
 
 cache_service = CacheService()

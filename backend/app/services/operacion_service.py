@@ -13,6 +13,7 @@ from app.models.novedad import Novedad
 from app.models.puesto import Puesto
 from app.models.turno import Turno
 from app.services.asistencia_service import AsistenciaService
+from app.services.crud_utils import CrudConflictError, CrudValidationError, optional_operation_id
 from app.services.novedad_service import NovedadService
 
 SESSION_TTL_SECONDS = 43200
@@ -135,12 +136,36 @@ class OperacionService:
         cache.delete(_session_key(device_id)); return True
 
     def create_attendance(self, device_id, payload):
+        operation_id = self._required_operation_id(payload)
+        service = AsistenciaService()
+        existing = service.get_by_operation_id(operation_id)
+        if existing is not None:
+            if existing.id_dispositivo != device_id:
+                raise CrudConflictError("operation_id ya pertenece a otro dispositivo.")
+            return existing
         guard = self._required_session(device_id)["guardia_identificado"]
-        return AsistenciaService().create({"fecha_hora": payload.get("fecha_hora", datetime.now().isoformat()), "latitud": payload.get("latitud"), "longitud": payload.get("longitud"), "foto": payload.get("foto"), "observacion": payload.get("observacion"), "estado": "registrada", "id_empleado": guard["id_empleado"], "id_turno": guard["id_turno"], "id_dispositivo": device_id})
+        return service.create({"operation_id": operation_id, "fecha_hora": payload.get("fecha_hora", datetime.now().isoformat()), "latitud": payload.get("latitud"), "longitud": payload.get("longitud"), "foto": payload.get("foto"), "observacion": payload.get("observacion"), "estado": "registrada", "id_empleado": guard["id_empleado"], "id_turno": guard["id_turno"], "id_dispositivo": device_id})
 
     def create_incident(self, device_id, payload):
+        operation_id = self._required_operation_id(payload)
+        service = NovedadService()
+        existing = service.get_by_operation_id(operation_id)
+        if existing is not None:
+            if existing.id_dispositivo != device_id:
+                raise CrudConflictError("operation_id ya pertenece a otro dispositivo.")
+            return existing
         guard = self._required_session(device_id)["guardia_identificado"]
-        return NovedadService().create({"tipo": payload.get("tipo"), "descripcion": payload.get("descripcion"), "fecha_hora": payload.get("fecha_hora", datetime.now().isoformat()), "estado": "abierta", "id_empleado": guard["id_empleado"], "id_turno": guard["id_turno"], "id_dispositivo": device_id, "evidencia_foto": payload.get("evidencia_foto")})
+        return service.create({"operation_id": operation_id, "tipo": payload.get("tipo"), "descripcion": payload.get("descripcion"), "fecha_hora": payload.get("fecha_hora", datetime.now().isoformat()), "estado": "abierta", "id_empleado": guard["id_empleado"], "id_turno": guard["id_turno"], "id_dispositivo": device_id, "evidencia_foto": payload.get("evidencia_foto")})
+
+    @staticmethod
+    def _required_operation_id(payload):
+        errors = {}
+        operation_id = optional_operation_id(payload, errors)
+        if "operation_id" not in payload:
+            errors["operation_id"] = "Este campo es obligatorio."
+        if errors:
+            raise CrudValidationError(errors)
+        return operation_id
 
     def _required_session(self, device_id):
         session = self.get_session(device_id)

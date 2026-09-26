@@ -10,6 +10,7 @@ from app.services.cache_service import cache_service
 from app.domain import ATTENDANCE_STATES, validate_catalog
 from app.services.crud_utils import (
     CrudValidationError,
+    optional_operation_id,
     optional_string,
     raise_if_invalid,
     required_datetime,
@@ -17,36 +18,37 @@ from app.services.crud_utils import (
     required_integer,
     required_string,
     save_entity,
+    save_idempotent_entity,
     validate_payload,
 )
 
 
 class AsistenciaService:
     _required_fields = ("fecha_hora", "latitud", "longitud", "estado", "id_empleado", "id_turno", "id_dispositivo")
-    _allowed_fields = set(_required_fields) | {"foto", "observacion"}
+    _allowed_fields = set(_required_fields) | {"foto", "observacion", "operation_id"}
 
     def __init__(self, repository: AsistenciaRepository | None = None):
         self.repository = repository or AsistenciaRepository()
 
     def create(self, payload: dict) -> Asistencia:
         data = self._validate_data(payload, True)
+        if data.get("operation_id"):
+            existing = self.repository.get_by_operation_id(data["operation_id"])
+            if existing is not None:
+                return existing
         self._validate_references(data)
-        asistencia = save_entity(self.repository, Asistencia(**data), "No fue posible guardar la asistencia.")
+        asistencia = save_idempotent_entity(self.repository, Asistencia(**data), "No fue posible guardar la asistencia.")
         cache_service.invalidate("asistencia", asistencia.id_asistencia)
         return asistencia
 
     def get_by_id(self, asistencia_id: int) -> Asistencia | None:
-        return cache_service.get_by_id(
-            "asistencia",
-            asistencia_id,
-            Asistencia,
-            lambda: self.repository.get_by_id(asistencia_id),
-        )
+        return self.repository.get_by_id(asistencia_id)
 
     def get_all(self) -> list[Asistencia]:
-        return cache_service.get_all(
-            "asistencias", Asistencia, lambda: self.repository.get_all()
-        )
+        return self.repository.get_all()
+
+    def get_by_operation_id(self, operation_id: str) -> Asistencia | None:
+        return self.repository.get_by_operation_id(operation_id)
 
     def update(self, asistencia_id: int, payload: dict) -> Asistencia | None:
         asistencia = self.repository.get_by_id(asistencia_id)
@@ -90,6 +92,7 @@ class AsistenciaService:
             "id_dispositivo": lambda: required_integer(payload, "id_dispositivo", errors),
             "foto": lambda: optional_string(payload, "foto", 255, errors),
             "observacion": lambda: optional_string(payload, "observacion", 255, errors),
+            "operation_id": lambda: optional_operation_id(payload, errors),
         }
         for field, validator in validators.items():
             value = validator()

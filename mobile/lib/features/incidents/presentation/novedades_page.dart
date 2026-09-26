@@ -349,7 +349,7 @@ class _NovedadFormState extends State<_NovedadForm> {
         for (final shift in widget.shifts)
           DropdownMenuItem(
             value: shift.idTurno,
-            child: Text('${shift.fecha} ${shift.horaInicio}'),
+            child: Text('${shift.fecha} ${shift.horaInicio ?? 'Sin hora'}'),
           ),
       ],
       onChanged: (value) => setState(() => _shiftId = value),

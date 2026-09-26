@@ -75,24 +75,24 @@ class Semana14OperacionTestCase(unittest.TestCase):
     def test_coordenadas_invalidas_devuelven_400(self):
         headers = self._headers(); self._identify(headers)
         for latitude, longitude in ((91, 0), (-91, 0), (0, 181), (0, -181), ("x", 0)):
-            response = self.client.post(f"/operacion/dispositivos/{self.device.id_dispositivo}/asistencias", headers=headers, json={"latitud": latitude, "longitud": longitude})
+            response = self.client.post(f"/operacion/dispositivos/{self.device.id_dispositivo}/asistencias", headers=headers, json={"operation_id": "20000000-0000-4000-8000-000000000001", "latitud": latitude, "longitud": longitude})
             self.assertEqual(response.status_code, 400)
 
     @patch("app.tasks.process_novedad.delay")
     def test_novedad_sin_foto_y_jpeg_seguro(self, _delay):
         headers = self._headers(); self._identify(headers)
         path = f"/operacion/dispositivos/{self.device.id_dispositivo}/novedades-con-foto"
-        plain = self.client.post(path, headers=headers, data={"tipo": "CONTROL", "descripcion": "Sin foto"})
+        plain = self.client.post(path, headers=headers, data={"operation_id": "20000000-0000-4000-8000-000000000002", "tipo": "CONTROL", "descripcion": "Sin foto"})
         self.assertEqual(plain.status_code, 201)
         jpeg = b"\xff\xd8\xff\xe0" + b"test-image"
-        photo = self.client.post(path, headers=headers, data={"tipo": "CONTROL", "descripcion": "Con foto", "foto": (io.BytesIO(jpeg), "../../malicioso.jpg")}, content_type="multipart/form-data")
+        photo = self.client.post(path, headers=headers, data={"operation_id": "20000000-0000-4000-8000-000000000003", "tipo": "CONTROL", "descripcion": "Con foto", "foto": (io.BytesIO(jpeg), "../../malicioso.jpg")}, content_type="multipart/form-data")
         self.assertEqual(photo.status_code, 201, photo.get_json())
         reference = photo.get_json()["data"]["evidencia_foto"]
         self.assertTrue(reference.startswith("uploads/novedades/")); self.assertNotIn("..", reference)
 
     def test_archivo_invalido_es_rechazado(self):
         headers = self._headers(); self._identify(headers)
-        response = self.client.post(f"/operacion/dispositivos/{self.device.id_dispositivo}/novedades-con-foto", headers=headers, data={"tipo": "CONTROL", "descripcion": "Archivo", "foto": (io.BytesIO(b"not-an-image"), "x.exe")}, content_type="multipart/form-data")
+        response = self.client.post(f"/operacion/dispositivos/{self.device.id_dispositivo}/novedades-con-foto", headers=headers, data={"operation_id": "20000000-0000-4000-8000-000000000004", "tipo": "CONTROL", "descripcion": "Archivo", "foto": (io.BytesIO(b"not-an-image"), "x.exe")}, content_type="multipart/form-data")
         self.assertEqual(response.status_code, 400)
 
 

@@ -11,6 +11,11 @@ class AsistenciaRepository:
             db.select(Asistencia).order_by(Asistencia.id_asistencia)
         ).scalars().all()
 
+    def get_by_operation_id(self, operation_id: str) -> Asistencia | None:
+        return db.session.execute(
+            db.select(Asistencia).where(Asistencia.operation_id == operation_id)
+        ).scalar_one_or_none()
+
     def save(self, asistencia: Asistencia) -> Asistencia:
         db.session.add(asistencia)
         db.session.commit()

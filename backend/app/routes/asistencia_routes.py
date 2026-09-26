@@ -6,6 +6,7 @@ from app.models.turno import Turno
 from app.services.asistencia_service import AsistenciaService
 from app.services.crud_utils import CrudConflictError, CrudValidationError
 from app.services.query_service import paginated
+from app.services.cache_service import cache_service
 from sqlalchemy.orm import joinedload
 
 
@@ -20,6 +21,7 @@ def _serialize_asistencia(asistencia: Asistencia) -> dict:
     puesto = turno.puesto if turno else (dispositivo.puesto if dispositivo else None)
     return {
         "id_asistencia": asistencia.id_asistencia,
+        "operation_id": asistencia.operation_id,
         "fecha_hora": asistencia.fecha_hora.isoformat(),
         "latitud": str(asistencia.latitud),
         "longitud": str(asistencia.longitud),
@@ -66,10 +68,14 @@ def list_asistencias():
 @asistencias_bp.get("/<int:asistencia_id>")
 @cargo_required("ADMINISTRADOR", "SUPERVISOR", "GUARDIA")
 def get_asistencia(asistencia_id: int):
-    asistencia = asistencia_service.get_by_id(asistencia_id)
-    if asistencia is None:
+    data = cache_service.get_by_id(
+        "asistencia", asistencia_id,
+        lambda: asistencia_service.get_by_id(asistencia_id),
+        _serialize_asistencia,
+    )
+    if data is None:
         return jsonify({"error": "Asistencia no encontrada."}), 404
-    return jsonify({"data": _serialize_asistencia(asistencia)}), 200
+    return jsonify({"data": data}), 200
 
 
 @asistencias_bp.put("/<int:asistencia_id>")

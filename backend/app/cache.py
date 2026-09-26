@@ -52,6 +52,18 @@ class RedisCache:
             return self._execute("delete", *keys) is not None
         return True
 
+    def delete_pattern(self, pattern: str) -> bool:
+        if not self._enabled or self._client is None:
+            return True
+        try:
+            keys = list(self._client.scan_iter(match=pattern, count=100))
+            if keys:
+                self._client.delete(*keys)
+            return True
+        except self._redis_errors as error:
+            logger.warning("Redis no estÃ¡ disponible; no se pudo invalidar la cachÃ©: %s", error)
+            return False
+
     def _execute(self, operation: str, *args, **kwargs):
         if not self._enabled or self._client is None:
             return None
